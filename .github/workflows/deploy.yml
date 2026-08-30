@@ -10,7 +10,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, master]
+    branches: [miguantera-v1, main, master]
   workflow_dispatch:
 
 permissions:
