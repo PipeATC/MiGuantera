@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-primary-900 antialiased;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
+  }
+
+  /* Tabular figures for identifiers / plates / dates */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font-family: inherit;
+  }
+}
+
+@layer components {
+  /* Level 1 tactile card */
+  .card-tactile {
+    @apply rounded-xl bg-white shadow-card ring-1 ring-primary-100;
+  }
+
+  /* Inset "well" input */
+  .input-well {
+    @apply w-full rounded-lg bg-primary-100 px-4 py-3 text-body-md text-primary-900 shadow-inset outline-none ring-1 ring-transparent transition;
+  }
+  .input-well:focus {
+    @apply bg-white ring-2 ring-primary-900/70;
+  }
+
+  /* Primary tactile button */
+  .btn-primary {
+    @apply flex min-h-[48px] w-full items-center justify-center gap-2 rounded-lg bg-primary-900 px-5 font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)] transition active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-primary-100 px-5 font-semibold text-primary-800 transition active:scale-[0.98];
+  }
+  .btn-danger {
+    @apply flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-vencido-soft px-5 font-semibold text-vencido-dark transition active:scale-[0.98];
+  }
+
+  .label-field {
+    @apply mb-1.5 block text-label-caps uppercase tracking-wide text-primary-500;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .glass {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}

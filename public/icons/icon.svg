@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#131B2E" />
+      <stop offset="1" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="folder" x1="128" y1="150" x2="384" y2="410" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399" />
+      <stop offset="1" stop-color="#059669" />
+    </linearGradient>
+    <linearGradient id="folderFront" x1="128" y1="230" x2="384" y2="410" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6EE7B7" />
+      <stop offset="1" stop-color="#10B981" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  <!-- folder back tab -->
+  <path d="M132 168c0-13 11-24 24-24h84l30 34h114c13 0 24 11 24 24v40H132z" fill="url(#folder)" />
+  <!-- folder front -->
+  <rect x="120" y="196" width="272" height="196" rx="28" fill="url(#folderFront)" />
+  <!-- shield with check -->
+  <path d="M256 236l58 22v46c0 40-25 66-58 80-33-14-58-40-58-80v-46z" fill="#ffffff" fill-opacity="0.9" />
+  <path d="M232 300l18 18 34-40" stroke="#059669" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>
