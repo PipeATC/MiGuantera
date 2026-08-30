@@ -9,6 +9,7 @@
 
 import { getExpiryStatus, daysLabel } from './dateUtils.js';
 import { getDocType } from './docTypes.js';
+import { asset } from './assets.js';
 
 const SEEN_KEY = 'miguantera:remindersSeen';
 
@@ -97,8 +98,8 @@ export function fireReminderNotifications(pending) {
     try {
       new Notification(title, {
         body: `${item.label}${vehicleName}`,
-        icon: '/icons/icon-192.png',
-        badge: '/icons/icon-192.png',
+        icon: asset('icons/icon-192.png'),
+        badge: asset('icons/icon-192.png'),
         tag: `miguantera-${item.doc.id}`,
       });
       seen[key] = true;

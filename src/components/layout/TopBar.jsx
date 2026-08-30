@@ -1,10 +1,11 @@
 import { Wifi, WifiOff } from 'lucide-react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus.js';
+import { asset } from '../../utils/assets.js';
 
 function BrandMark() {
   return (
     <div className="flex items-center gap-2.5">
-      <img src="/icons/icon.svg" alt="" className="h-9 w-9 rounded-lg" />
+      <img src={asset('icons/icon.svg')} alt="" className="h-9 w-9 rounded-lg" />
       <span className="text-lg font-extrabold tracking-tight text-primary-900">
         MiGuantera
       </span>

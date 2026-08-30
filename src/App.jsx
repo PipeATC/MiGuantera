@@ -1,5 +1,6 @@
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useApp } from './context/AppContext.jsx';
+import { asset } from './utils/assets.js';
 import TopBar from './components/layout/TopBar.jsx';
 import BottomNav from './components/layout/BottomNav.jsx';
 import HomePage from './pages/HomePage.jsx';
@@ -10,7 +11,7 @@ import SettingsPage from './pages/SettingsPage.jsx';
 function Splash() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-primary-950 text-white">
-      <img src="/icons/icon.svg" alt="MiGuantera" className="h-20 w-20 animate-fade-in" />
+      <img src={asset('icons/icon.svg')} alt="MiGuantera" className="h-20 w-20 animate-fade-in" />
       <p className="text-lg font-extrabold tracking-tight">MiGuantera</p>
       <div className="h-1.5 w-24 overflow-hidden rounded-full bg-white/10">
         <div className="h-full w-1/2 animate-pulse rounded-full bg-brand-500" />
