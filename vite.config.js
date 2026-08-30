@@ -3,7 +3,13 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
-export default defineConfig({
+//
+// `base` debe coincidir con la ruta donde se sirve la app.
+// En GitHub Pages de un repo, la URL es https://<user>.github.io/<repo>/,
+// por lo que se usa '/MiGuantera/' en el build. En desarrollo se usa '/'.
+// Puedes sobreescribirlo con la variable de entorno VITE_BASE.
+export default defineConfig(({ command }) => ({
+  base: process.env.VITE_BASE || (command === 'build' ? '/MiGuantera/' : '/'),
   plugins: [
     react(),
     VitePWA({
@@ -21,8 +27,8 @@ export default defineConfig({
         background_color: '#0F172A',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: './',
+        start_url: './',
         categories: ['productivity', 'utilities', 'finance'],
         icons: [
           {
@@ -61,7 +67,7 @@ export default defineConfig({
             name: 'Modo Inspección',
             short_name: 'Inspección',
             description: 'Abrir el modo de control policial',
-            url: '/inspeccion',
+            url: './inspeccion',
             icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }],
           },
         ],
@@ -99,4 +105,4 @@ export default defineConfig({
     host: true,
     port: 5173,
   },
-});
+}));

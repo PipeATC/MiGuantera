@@ -6,7 +6,7 @@
   "description": "MiGuantera - Billetera digital offline-first para documentos vehiculares (PWA)",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/postbuild.mjs",
     "preview": "vite preview",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
