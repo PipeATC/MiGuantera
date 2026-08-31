@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
 import { useWakeLock } from '../hooks/useWakeLock.js';
-import FileViewer from '../components/ui/FileViewer.jsx';
+import SwipeViewer from '../components/ui/SwipeViewer.jsx';
 import { INSPECTION_TABS, getDocType } from '../utils/docTypes.js';
 import { getExpiryStatus, formatDateShort, daysLabel } from '../utils/dateUtils.js';
 
@@ -64,6 +64,17 @@ export default function InspectionPage() {
   const meta = getDocType(tab);
   const status = doc && meta?.hasExpiry ? getExpiryStatus(doc.expiryDate, warnDays) : 'sin-fecha';
   const ui = STATUS_UI[status];
+
+  // Caras del documento (anverso / reverso) para el visor con swipe.
+  const sides = useMemo(
+    () =>
+      [
+        { blob: doc?.fileBlob, fileType: doc?.fileType, fileName: doc?.fileName, label: 'Anverso' },
+        { blob: doc?.backBlob, fileType: doc?.backFileType, fileName: doc?.backFileName, label: 'Reverso' },
+      ].filter((s) => s.blob),
+    [doc]
+  );
+  const hasImage = sides.some((s) => s.fileType?.startsWith('image/'));
 
   // Punto de alerta en las pestañas con documento vencido/por vencer
   const tabAlert = (t) => {
@@ -129,20 +140,20 @@ export default function InspectionPage() {
       {/* Visor del documento */}
       <div className="relative min-h-0 flex-1 px-4">
         <div
-          className={`relative flex h-full items-center justify-center overflow-hidden rounded-xl ring-1 ring-white/10 ${
+          className={`relative h-full overflow-hidden rounded-xl ring-1 ring-white/10 ${
             bright ? 'bg-white' : 'bg-slate-100'
           }`}
         >
-          {doc?.fileBlob ? (
-            <FileViewer
-              blob={doc.fileBlob}
-              fileType={doc.fileType}
-              fileName={doc.fileName}
+          {sides.length > 0 ? (
+            <SwipeViewer
+              sides={sides}
               zoom={zoom}
-              className="h-full w-full"
+              swipeEnabled={zoom === 1}
+              onIndexChange={() => setZoom(1)}
+              className="p-1"
             />
           ) : (
-            <div className="flex flex-col items-center gap-3 px-6 text-center text-slate-500">
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-slate-500">
               {meta?.icon ? <meta.icon className="h-12 w-12" strokeWidth={1.5} /> : <Car className="h-12 w-12" />}
               <p className="font-semibold">Sin documento cargado</p>
               <p className="text-sm">Agrega {meta?.title} desde Gestión</p>
@@ -150,7 +161,7 @@ export default function InspectionPage() {
           )}
 
           {/* Controles de zoom (solo imágenes) */}
-          {doc?.fileBlob && doc.fileType?.startsWith('image/') && (
+          {hasImage && (
             <div className="absolute bottom-4 right-4 flex flex-col gap-2">
               <button
                 onClick={() => setZoom((z) => Math.min(4, z + 0.25))}
@@ -195,7 +206,7 @@ export default function InspectionPage() {
       </div>
 
       {/* Barra inferior de pestañas */}
-      <nav className="grid grid-cols-4 gap-1 border-t border-white/10 bg-primary-950 px-2 pb-safe pt-2">
+      <nav className="grid grid-cols-5 gap-1 border-t border-white/10 bg-primary-950 px-1 pb-safe pt-2">
         {INSPECTION_TABS.map((t) => {
           const dt = getDocType(t);
           const active = t === tab;

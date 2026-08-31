@@ -9,8 +9,9 @@ const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
  * Zona de carga por Input o Drag & Drop.
  * Comprime imágenes antes de entregar el Blob resultante al padre.
  * onFile({ blob, fileName, fileType, fileSize })
+ * `compact` reduce el alto para acomodar dos zonas (anverso/reverso).
  */
-export default function DocumentUpload({ onFile, currentName }) {
+export default function DocumentUpload({ onFile, currentName, compact = false }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -61,28 +62,40 @@ export default function DocumentUpload({ onFile, currentName }) {
           setDragging(false);
           handleFiles(e.dataTransfer.files);
         }}
-        className={`flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition ${
+        className={`flex w-full flex-col items-center justify-center text-center transition ${
+          compact
+            ? 'gap-1.5 rounded-lg border-2 border-dashed px-3 py-6'
+            : 'gap-3 rounded-xl border-2 border-dashed px-6 py-10'
+        } ${
           dragging
             ? 'border-brand-500 bg-brand-500/5'
             : 'border-primary-200 bg-primary-50 hover:border-primary-300'
         }`}
       >
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-100 text-primary-600">
+        <span
+          className={`flex items-center justify-center rounded-full bg-primary-100 text-primary-600 ${
+            compact ? 'h-10 w-10' : 'h-16 w-16'
+          }`}
+        >
           {busy ? (
-            <Loader2 className="h-7 w-7 animate-spin" />
+            <Loader2 className={compact ? 'h-5 w-5 animate-spin' : 'h-7 w-7 animate-spin'} />
           ) : (
-            <FileUp className="h-7 w-7" strokeWidth={1.75} />
+            <FileUp className={compact ? 'h-5 w-5' : 'h-7 w-7'} strokeWidth={1.75} />
           )}
         </span>
-        <span className="text-lg font-semibold text-primary-800">
-          {busy ? 'Procesando…' : 'Arrastra tu archivo aquí'}
+        <span
+          className={`font-semibold text-primary-800 ${compact ? 'text-sm' : 'text-lg'}`}
+        >
+          {busy ? 'Procesando…' : compact ? 'Toca para subir' : 'Arrastra tu archivo aquí'}
         </span>
-        <span className="text-sm text-primary-500">o toca para seleccionar</span>
-        <span className="mt-1 flex gap-2">
+        {!compact && (
+          <span className="text-sm text-primary-500">o toca para seleccionar</span>
+        )}
+        <span className={`flex gap-1.5 ${compact ? '' : 'mt-1 gap-2'}`}>
           {['PDF', 'JPG', 'PNG'].map((f) => (
             <span
               key={f}
-              className="rounded-md bg-primary-200/70 px-2.5 py-1 text-xs font-bold text-primary-600"
+              className="rounded-md bg-primary-200/70 px-2 py-0.5 text-[10px] font-bold text-primary-600"
             >
               {f}
             </span>

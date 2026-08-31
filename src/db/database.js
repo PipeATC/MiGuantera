@@ -124,11 +124,18 @@ export async function saveDocument(doc) {
   const record = {
     id: doc.id || makeId('doc'),
     vehicleId: doc.vehicleId || null,
-    type: doc.type, // 'padron' | 'permiso' | 'revision' | 'licencia' | 'soap'
+    type: doc.type, // 'cedula' | 'licencia' | 'padron' | 'permiso' | 'revision' | 'soap'
+    // Anverso (cara frontal). Se mantienen los nombres históricos file* por
+    // compatibilidad con respaldos y registros existentes.
     fileName: doc.fileName || '',
     fileBlob: doc.fileBlob || null, // Blob
     fileType: doc.fileType || '', // MIME
     fileSize: doc.fileSize || (doc.fileBlob ? doc.fileBlob.size : 0),
+    // Reverso (cara posterior). Opcional.
+    backFileName: doc.backFileName || '',
+    backBlob: doc.backBlob || null, // Blob
+    backFileType: doc.backFileType || '', // MIME
+    backFileSize: doc.backFileSize || (doc.backBlob ? doc.backBlob.size : 0),
     issueDate: doc.issueDate || null, // ISO yyyy-mm-dd
     expiryDate: doc.expiryDate || null, // ISO yyyy-mm-dd
     number: doc.number || '', // nº de documento / patente asociada
