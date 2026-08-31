@@ -38,7 +38,7 @@ export default function InspectionPage() {
 
   const [tab, setTab] = useState(() => {
     const t = params.get('tab');
-    return INSPECTION_TABS.includes(t) ? t : 'licencia';
+    return INSPECTION_TABS.includes(t) ? t : INSPECTION_TABS[0]; // cédula por defecto
   });
   const [zoom, setZoom] = useState(1);
   const [bright, setBright] = useState(false);
@@ -206,7 +206,7 @@ export default function InspectionPage() {
       </div>
 
       {/* Barra inferior de pestañas */}
-      <nav className="grid grid-cols-5 gap-1 border-t border-white/10 bg-primary-950 px-1 pb-safe pt-2">
+      <nav className="grid grid-cols-4 gap-1 border-t border-white/10 bg-primary-950 px-1 pb-safe pt-2">
         {INSPECTION_TABS.map((t) => {
           const dt = getDocType(t);
           const active = t === tab;

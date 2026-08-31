@@ -1,7 +1,7 @@
 # MiGuantera 🚗📁
 
 **Billetera digital _offline-first_ para tus documentos vehiculares y de identidad.**
-Guarda, organiza y exhibe tu cédula de identidad, licencia, padrón, permiso de circulación, revisión técnica y SOAP — todo **100% local y privado**, sin backend ni APIs externas.
+Guarda, organiza y exhibe tu cédula de identidad, licencia, padrón, permiso de circulación, revisión técnica, certificado de gases y SOAP — todo **100% local y privado**, sin backend ni APIs externas.
 
 > PWA instalable · funciona sin conexión tras el primer render · tus documentos nunca salen de tu navegador.
 
@@ -13,7 +13,7 @@ Guarda, organiza y exhibe tu cédula de identidad, licencia, padrón, permiso de
 - **Anverso y reverso.** Cada documento admite dos caras (frontal y posterior). En el visor se cambia de cara con un **deslizamiento (swipe)**, flechas o puntos indicadores.
 - **Cédula de Identidad.** Documento personal del titular, junto a la licencia, con exhibición directa en Modo Inspección.
 - **Bloqueo de seguridad.** Compuerta al abrir la app con el **método nativo del dispositivo** vía WebAuthn: biometría (huella / rostro) en el teléfono o Windows Hello (PIN / huella) en el computador. La credencial es una passkey de plataforma ligada al dispositivo; no viaja a ningún servidor.
-- **Modo Control Policial.** Botón directo desde la Home. Renderizador full-screen de alto contraste, barra inferior fija para cambiar de documento con un toque (Cédula · Licencia · Padrón · Permiso · Revisión), swipe entre caras, zoom con botones grandes y **pantalla siempre encendida** (`navigator.wakeLock`).
+- **Modo Control Policial.** Botón directo desde la Home. Renderizador full-screen de alto contraste, barra inferior fija para cambiar de documento con un toque (Cédula · Licencia · Padrón · Permiso · Revisión · Gases · SOAP), la **cédula se muestra primero**, swipe entre caras, zoom con botones grandes y **pantalla siempre encendida** (`navigator.wakeLock`).
 - **Gestión de documentos.** Subida por _input_ o **drag & drop**, **compresión de imágenes en cliente** (canvas) antes de guardar, y **estado de vencimiento** (días restantes, "Por Vencer", "Vencido").
 - **Recordatorios de vencimiento.** Evaluación local al abrir la app + **notificaciones locales** (con permiso del usuario), sin push server.
 - **Respaldo completo.** Exportar / Importar en **JSON con archivos en Base64**.
@@ -103,7 +103,7 @@ Document = { id, vehicleId, type,
              fileName, fileBlob, fileType, fileSize,          // anverso
              backFileName, backBlob, backFileType, backFileSize, // reverso
              issueDate, expiryDate, number, lastUpdated }
-// type ∈ 'cedula' | 'licencia' | 'padron' | 'permiso' | 'revision' | 'soap'
+// type ∈ 'cedula' | 'licencia' | 'padron' | 'permiso' | 'revision' | 'gases' | 'soap'
 
 // Ajuste de seguridad (IndexedDB store `settings`)
 securityLock = { enabled, credentialId, method: 'webauthn', createdAt }
