@@ -21,6 +21,7 @@ import {
   computePendingReminders,
   fireReminderNotifications,
 } from '../utils/reminders.js';
+import { registerDeviceCredential } from '../utils/deviceAuth.js';
 
 const AppContext = createContext(null);
 
@@ -31,6 +32,9 @@ export function AppProvider({ children }) {
   const [driverName, setDriverName] = useState('');
   const [warnDays, setWarnDaysState] = useState(DEFAULT_WARN_DAYS);
   const [activeVehicleId, setActiveVehicleId] = useState(null);
+  // Bloqueo de seguridad (biometría / PIN del dispositivo)
+  const [securityLock, setSecurityLockState] = useState(null); // { enabled, credentialId }
+  const [locked, setLocked] = useState(false);
 
   const refresh = useCallback(async () => {
     const [v, d] = await Promise.all([getAllVehicles(), getAllDocuments()]);
@@ -42,19 +46,36 @@ export function AppProvider({ children }) {
   // Carga inicial
   useEffect(() => {
     (async () => {
-      const [v, d, name, wd] = await Promise.all([
+      const [v, d, name, wd, sl] = await Promise.all([
         getAllVehicles(),
         getAllDocuments(),
         getSetting('driverName', ''),
         getSetting('warnDays', DEFAULT_WARN_DAYS),
+        getSetting('securityLock', null),
       ]);
       setVehicles(v);
       setDocuments(d);
       setDriverName(name || '');
       setWarnDaysState(Number(wd) || DEFAULT_WARN_DAYS);
+      setSecurityLockState(sl);
+      setLocked(!!(sl && sl.enabled)); // arrancar bloqueado si está activo
       setActiveVehicleId((prev) => prev || (v[0] ? v[0].id : null));
       setLoading(false);
     })();
+  }, []);
+
+  // Re-bloquear al volver a segundo plano (PWA): exige verificar al reabrir.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        setSecurityLockState((sl) => {
+          if (sl && sl.enabled) setLocked(true);
+          return sl;
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
   // Dispara recordatorios locales una vez cargados los datos
@@ -99,6 +120,27 @@ export function AppProvider({ children }) {
     await setSetting('warnDays', val);
   }, []);
 
+  // --- Bloqueo de seguridad ---
+  const unlock = useCallback(() => setLocked(false), []);
+
+  const enableSecurityLock = useCallback(async () => {
+    // Registra la credencial de plataforma (dispara biometría / PIN).
+    const { credentialId } = await registerDeviceCredential({
+      userName: driverName || 'MiGuantera',
+    });
+    const value = { enabled: true, credentialId, method: 'webauthn', createdAt: Date.now() };
+    await setSetting('securityLock', value);
+    setSecurityLockState(value);
+    setLocked(false); // recién configurado: queda desbloqueado
+    return value;
+  }, [driverName]);
+
+  const disableSecurityLock = useCallback(async () => {
+    await setSetting('securityLock', null);
+    setSecurityLockState(null);
+    setLocked(false);
+  }, []);
+
   // Índices derivados
   const documentsByVehicle = useMemo(() => {
     const map = new Map();
@@ -131,6 +173,11 @@ export function AppProvider({ children }) {
     driverName,
     warnDays,
     pendingReminders,
+    securityLock,
+    locked,
+    unlock,
+    enableSecurityLock,
+    disableSecurityLock,
     refresh,
     saveVehicle,
     removeVehicle,

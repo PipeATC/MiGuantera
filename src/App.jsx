@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage.jsx';
 import InspectionPage from './pages/InspectionPage.jsx';
 import ManagementPage from './pages/ManagementPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import LockScreen from './components/security/LockScreen.jsx';
 
 function Splash() {
   return (
@@ -21,11 +22,14 @@ function Splash() {
 }
 
 export default function App() {
-  const { loading } = useApp();
+  const { loading, securityLock, locked } = useApp();
   const location = useLocation();
   const isInspection = location.pathname === '/inspeccion';
 
   if (loading) return <Splash />;
+
+  // Compuerta de seguridad: exige verificación del dispositivo al abrir la app.
+  if (securityLock?.enabled && locked) return <LockScreen />;
 
   // Modo Inspección: pantalla completa sin chrome
   if (isInspection) {

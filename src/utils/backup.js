@@ -16,7 +16,7 @@ import {
 } from '../db/database.js';
 import { blobToBase64, base64ToBlob, downloadBlob } from './fileUtils.js';
 
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 export const BACKUP_MAGIC = 'miguantera-backup';
 
 /** Construye el objeto de respaldo (con archivos en Base64). */
@@ -30,12 +30,10 @@ export async function buildBackup() {
 
   const docsSerialized = await Promise.all(
     documents.map(async (doc) => {
-      const { fileBlob, ...rest } = doc;
-      let fileBase64 = null;
-      if (fileBlob) {
-        fileBase64 = await blobToBase64(fileBlob);
-      }
-      return { ...rest, fileBase64 };
+      const { fileBlob, backBlob, ...rest } = doc;
+      const fileBase64 = fileBlob ? await blobToBase64(fileBlob) : null;
+      const backFileBase64 = backBlob ? await blobToBase64(backBlob) : null;
+      return { ...rest, fileBase64, backFileBase64 };
     })
   );
 
@@ -91,11 +89,14 @@ export async function importBackup(data, opts = {}) {
   }
 
   for (const doc of data.documents) {
-    const { fileBase64, ...rest } = doc;
+    const { fileBase64, backFileBase64, ...rest } = doc;
     const fileBlob = fileBase64
       ? base64ToBlob(fileBase64, rest.fileType || 'application/octet-stream')
       : null;
-    await saveDocument({ ...rest, fileBlob });
+    const backBlob = backFileBase64
+      ? base64ToBlob(backFileBase64, rest.backFileType || 'application/octet-stream')
+      : null;
+    await saveDocument({ ...rest, fileBlob, backBlob });
   }
 
   if (data.settings && typeof data.settings.driverName === 'string') {

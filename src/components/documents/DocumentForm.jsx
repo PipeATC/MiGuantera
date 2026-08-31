@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Cloud, RefreshCw, Download, Trash2, Save } from 'lucide-react';
-import DocumentUpload from './DocumentUpload.jsx';
+import { Cloud, RefreshCw, Download, Trash2, Save, Layers } from 'lucide-react';
+import DocumentSideField from './DocumentSideField.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { getDocType } from '../../utils/docTypes.js';
 import { formatBytes, downloadBlob } from '../../utils/fileUtils.js';
 
 /**
  * Formulario de creación/edición de un documento (contenido del modal).
+ * Cada documento admite dos caras: anverso (frontal) y reverso (posterior).
  * type: clave del tipo de documento. doc: registro existente o null.
  * vehicleId: vehículo asociado por defecto.
  */
@@ -14,7 +15,12 @@ export default function DocumentForm({ type, doc, vehicleId, onDone }) {
   const { vehicles, saveDocument, removeDocument } = useApp();
   const meta = getDocType(type);
 
-  const [pending, setPending] = useState(null); // { blob, fileName, fileType, fileSize }
+  // Estado por cara: pending = nuevo archivo elegido; removed = quitar el existente.
+  const [frontPending, setFrontPending] = useState(null);
+  const [frontRemoved, setFrontRemoved] = useState(false);
+  const [backPending, setBackPending] = useState(null);
+  const [backRemoved, setBackRemoved] = useState(false);
+
   const [expiryDate, setExpiryDate] = useState(doc?.expiryDate || '');
   const [issueDate, setIssueDate] = useState(doc?.issueDate || '');
   const [number, setNumber] = useState(doc?.number || '');
@@ -23,10 +29,20 @@ export default function DocumentForm({ type, doc, vehicleId, onDone }) {
   );
   const [saving, setSaving] = useState(false);
 
-  const hasFile = pending || doc?.fileBlob;
-  const fileName = pending?.fileName || doc?.fileName;
-  const fileSize = pending?.fileSize ?? doc?.fileSize;
-  const fileType = pending?.fileType || doc?.fileType;
+  // Archivo efectivo por cara (nuevo, existente o ninguno).
+  const front = frontRemoved
+    ? null
+    : frontPending || (doc?.fileBlob
+        ? { blob: doc.fileBlob, fileName: doc.fileName, fileType: doc.fileType, fileSize: doc.fileSize }
+        : null);
+  const back = backRemoved
+    ? null
+    : backPending || (doc?.backBlob
+        ? { blob: doc.backBlob, fileName: doc.backFileName, fileType: doc.backFileType, fileSize: doc.backFileSize }
+        : null);
+
+  const totalSize = (front?.fileSize || 0) + (back?.fileSize || 0);
+  const sidesCount = (front ? 1 : 0) + (back ? 1 : 0);
 
   const handleSave = async () => {
     setSaving(true);
@@ -35,10 +51,14 @@ export default function DocumentForm({ type, doc, vehicleId, onDone }) {
         id: doc?.id,
         type,
         vehicleId: meta.scope === 'vehicle' ? assignedVehicle || null : null,
-        fileBlob: pending ? pending.blob : doc?.fileBlob || null,
-        fileName: pending ? pending.fileName : doc?.fileName || '',
-        fileType: pending ? pending.fileType : doc?.fileType || '',
-        fileSize: pending ? pending.fileSize : doc?.fileSize || 0,
+        fileBlob: front?.blob || null,
+        fileName: front?.fileName || '',
+        fileType: front?.fileType || '',
+        fileSize: front?.fileSize || 0,
+        backBlob: back?.blob || null,
+        backFileName: back?.fileName || '',
+        backFileType: back?.fileType || '',
+        backFileSize: back?.fileSize || 0,
         issueDate: issueDate || null,
         expiryDate: meta.hasExpiry ? expiryDate || null : null,
         number,
@@ -58,22 +78,58 @@ export default function DocumentForm({ type, doc, vehicleId, onDone }) {
   };
 
   const handleDownload = () => {
-    const blob = pending?.blob || doc?.fileBlob;
-    if (blob) downloadBlob(blob, fileName || `${type}`);
+    if (front?.blob) downloadBlob(front.blob, front.fileName || `${type}-anverso`);
+    if (back?.blob) downloadBlob(back.blob, back.fileName || `${type}-reverso`);
   };
 
   return (
     <div className="space-y-5">
-      <DocumentUpload onFile={setPending} currentName={pending ? pending.fileName : null} />
+      {/* Caras del documento */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <DocumentSideField
+          label="Anverso"
+          blob={front?.blob}
+          fileName={front?.fileName}
+          fileType={front?.fileType}
+          fileSize={front?.fileSize}
+          onPick={(f) => {
+            setFrontPending(f);
+            setFrontRemoved(false);
+          }}
+          onRemove={() => {
+            setFrontPending(null);
+            setFrontRemoved(true);
+          }}
+        />
+        <DocumentSideField
+          label="Reverso"
+          blob={back?.blob}
+          fileName={back?.fileName}
+          fileType={back?.fileType}
+          fileSize={back?.fileSize}
+          onPick={(f) => {
+            setBackPending(f);
+            setBackRemoved(false);
+          }}
+          onRemove={() => {
+            setBackPending(null);
+            setBackRemoved(true);
+          }}
+        />
+      </div>
+      <p className="flex items-center gap-1.5 text-xs text-primary-500">
+        <Layers className="h-3.5 w-3.5" /> Agrega ambas caras para exhibirlas con un deslizamiento.
+      </p>
 
       {/* Estado de guardado local */}
-      {hasFile && (
+      {sidesCount > 0 && (
         <div className="flex items-center gap-3 rounded-lg bg-vigente-soft px-4 py-3 text-vigente-dark">
           <Cloud className="h-6 w-6 shrink-0" strokeWidth={2} />
           <div className="min-w-0">
             <p className="font-bold leading-tight">Guardado localmente</p>
             <p className="truncate text-sm">
-              {fileSize ? `${formatBytes(fileSize)} · ` : ''}Disponible sin conexión
+              {sidesCount === 2 ? 'Anverso y reverso · ' : '1 cara · '}
+              {totalSize ? `${formatBytes(totalSize)} · ` : ''}Disponible sin conexión
             </p>
           </div>
         </div>
@@ -82,14 +138,18 @@ export default function DocumentForm({ type, doc, vehicleId, onDone }) {
       {/* Nº de documento */}
       <div>
         <label className="label-field" htmlFor="doc-number">
-          {type === 'licencia' ? 'Nombre / RUN del conductor' : 'Número de documento'}
+          {type === 'licencia' || type === 'cedula'
+            ? 'Nombre / RUN del titular'
+            : 'Número de documento'}
         </label>
         <input
           id="doc-number"
           type="text"
           value={number}
           onChange={(e) => setNumber(e.target.value)}
-          placeholder={type === 'licencia' ? 'Ej: Ana María Rodríguez' : 'Opcional'}
+          placeholder={
+            type === 'licencia' || type === 'cedula' ? 'Ej: Ana María Rodríguez' : 'Opcional'
+          }
           className="input-well"
         />
       </div>
@@ -162,7 +222,11 @@ export default function DocumentForm({ type, doc, vehicleId, onDone }) {
 
         {doc && (
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={handleDownload} disabled={!hasFile} className="btn-secondary disabled:opacity-50">
+            <button
+              onClick={handleDownload}
+              disabled={sidesCount === 0}
+              className="btn-secondary disabled:opacity-50"
+            >
               <Download className="h-5 w-5" /> Descargar
             </button>
             <button onClick={handleDelete} className="btn-danger">

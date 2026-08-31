@@ -23,8 +23,9 @@ function DocRow({ doc, vehicle, onClick }) {
       <div className="min-w-0 flex-1">
         <p className="truncate font-bold text-primary-900">{type.title}</p>
         <p className="truncate text-sm text-primary-500">
-          {vehicle ? `${vehicle.name}` : type.scope === 'driver' ? 'Conductor' : 'Sin asignar'}
+          {vehicle ? `${vehicle.name}` : type.scope === 'driver' ? 'Titular' : 'Sin asignar'}
           {doc.expiryDate ? ` · ${daysLabel(doc.expiryDate)}` : ''}
+          {doc.backBlob ? ' · 2 caras' : ''}
           {doc.fileSize ? ` · ${formatBytes(doc.fileSize)}` : ''}
         </p>
       </div>

@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertTriangle, XCircle, Plus } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, Plus, Layers } from 'lucide-react';
 import { useObjectUrl } from '../../hooks/useObjectUrl.js';
 import { getExpiryStatus, formatDate } from '../../utils/dateUtils.js';
 import { isImage } from '../../utils/fileUtils.js';
@@ -59,6 +59,11 @@ export default function DocumentCard({ type, doc, warnDays, onClick }) {
     >
       <div className="relative h-24 w-full overflow-hidden">
         <Thumb doc={doc} type={type} />
+        {doc.backBlob && (
+          <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-primary-900/75 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow">
+            <Layers className="h-3 w-3" /> 2 caras
+          </span>
+        )}
         {corner && (
           <span
             className={`absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full shadow ${corner.cls}`}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Car } from 'lucide-react';
+import { ShieldCheck, Car, ScanLine } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
 import InstallBanner from '../components/layout/InstallBanner.jsx';
 import VehicleSelector from '../components/vehicles/VehicleSelector.jsx';
@@ -29,6 +29,7 @@ export default function HomePage() {
   const [docModal, setDocModal] = useState(null); // { type, doc }
 
   const licenseDoc = documents.find((d) => d.type === 'licencia') || null;
+  const cedulaDoc = documents.find((d) => d.type === 'cedula') || null;
   const vehicleDocs = documentsByVehicle.get(activeVehicleId) || [];
   const docByType = (t) => vehicleDocs.find((d) => d.type === t) || null;
 
@@ -47,6 +48,27 @@ export default function HomePage() {
         onExhibit={() => navigate('/inspeccion?tab=licencia')}
         onEdit={() => openDoc('licencia', licenseDoc)}
       />
+
+      {/* Documentos personales del titular (Cédula de Identidad) */}
+      <section className="space-y-3">
+        <h2 className="text-headline-sm text-primary-900">Documento de identidad</h2>
+        <div className="grid grid-cols-2 gap-3">
+          <DocumentCard
+            type={getDocType('cedula')}
+            doc={cedulaDoc}
+            warnDays={warnDays}
+            onClick={() => openDoc('cedula', cedulaDoc)}
+          />
+          <button
+            onClick={() => navigate('/inspeccion?tab=cedula')}
+            className="flex min-h-[168px] flex-col items-center justify-center gap-2 rounded-xl bg-primary-900 p-4 text-white shadow-card transition active:scale-[0.98]"
+          >
+            <ScanLine className="h-7 w-7" strokeWidth={2} />
+            <span className="text-label-caps uppercase text-white/70">Exhibir</span>
+            <span className="text-sm font-bold">Cédula</span>
+          </button>
+        </div>
+      </section>
 
       {/* Botón directo Modo Inspección */}
       <button

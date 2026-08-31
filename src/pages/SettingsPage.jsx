@@ -7,6 +7,7 @@ import {
   Database,
   Trash2,
   ShieldCheck,
+  Fingerprint,
   Info,
   Check,
 } from 'lucide-react';
@@ -14,6 +15,7 @@ import { useApp } from '../context/AppContext.jsx';
 import { exportBackup, importBackup, readBackupFile } from '../utils/backup.js';
 import { getStorageEstimate, clearAllData } from '../db/database.js';
 import { formatBytes } from '../utils/fileUtils.js';
+import { isDeviceAuthSupported } from '../utils/deviceAuth.js';
 import {
   notificationsSupported,
   notificationPermission,
@@ -43,12 +45,17 @@ export default function SettingsPage() {
     vehicles,
     documents,
     refresh,
+    securityLock,
+    enableSecurityLock,
+    disableSecurityLock,
   } = useApp();
 
   const [name, setName] = useState(driverName);
   const [savedName, setSavedName] = useState(false);
   const [storage, setStorage] = useState({ usage: 0, quota: 0 });
   const [notifPerm, setNotifPerm] = useState(notificationPermission());
+  const [lockSupported, setLockSupported] = useState(null); // null = comprobando
+  const [lockBusy, setLockBusy] = useState(false);
   const [toast, setToast] = useState('');
   const importRef = useRef(null);
 
@@ -56,6 +63,9 @@ export default function SettingsPage() {
   useEffect(() => {
     getStorageEstimate().then(setStorage);
   }, [documents]);
+  useEffect(() => {
+    isDeviceAuthSupported().then(setLockSupported);
+  }, []);
 
   const flash = (msg) => {
     setToast(msg);
@@ -98,6 +108,31 @@ export default function SettingsPage() {
     const perm = await requestNotificationPermission();
     setNotifPerm(perm);
     flash(perm === 'granted' ? 'Recordatorios activados.' : 'Permiso de notificaciones denegado.');
+  };
+
+  const handleToggleLock = async () => {
+    if (lockBusy) return;
+    setLockBusy(true);
+    try {
+      if (securityLock?.enabled) {
+        if (!confirm('¿Desactivar el bloqueo de seguridad? La app se abrirá sin verificación.')) {
+          return;
+        }
+        await disableSecurityLock();
+        flash('Bloqueo de seguridad desactivado.');
+      } else {
+        await enableSecurityLock();
+        flash('Bloqueo activado. Se pedirá tu verificación al abrir la app.');
+      }
+    } catch (err) {
+      flash(
+        err?.name === 'NotAllowedError'
+          ? 'Configuración cancelada.'
+          : 'No se pudo activar el bloqueo en este dispositivo.'
+      );
+    } finally {
+      setLockBusy(false);
+    }
   };
 
   const handleClearAll = async () => {
@@ -174,6 +209,46 @@ export default function SettingsPage() {
         )}
       </Section>
 
+      {/* Seguridad */}
+      <Section icon={Fingerprint} title="Bloqueo de seguridad">
+        <p className="mb-3 text-sm text-primary-500">
+          Protege tus documentos con el método de tu dispositivo: biometría (huella o
+          rostro) en el teléfono, o Windows Hello (PIN / huella) en el computador. Se pedirá
+          al abrir la app.
+        </p>
+
+        {lockSupported === false ? (
+          <div className="rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-500">
+            Este dispositivo o navegador no ofrece un método de verificación compatible.
+            Necesitas una conexión segura (https) y biometría o PIN configurado en el sistema.
+          </div>
+        ) : (
+          <div className="flex items-center justify-between rounded-lg bg-primary-50 px-4 py-3">
+            <div className="text-sm">
+              <p className="font-semibold text-primary-800">
+                {securityLock?.enabled ? 'Activado' : 'Desactivado'}
+              </p>
+              <p className="text-primary-500">
+                {securityLock?.enabled
+                  ? 'La app pide verificación al abrirse.'
+                  : lockSupported === null
+                    ? 'Comprobando compatibilidad…'
+                    : 'Toca para activar la verificación.'}
+              </p>
+            </div>
+            <button
+              onClick={handleToggleLock}
+              disabled={lockBusy || lockSupported === null}
+              className={`!w-auto px-4 disabled:opacity-50 ${
+                securityLock?.enabled ? 'btn-secondary' : 'btn-primary'
+              }`}
+            >
+              {lockBusy ? '…' : securityLock?.enabled ? 'Desactivar' : 'Activar'}
+            </button>
+          </div>
+        )}
+      </Section>
+
       {/* Respaldo */}
       <Section icon={Database} title="Respaldo (Exportar / Importar)">
         <p className="mb-3 text-sm text-primary-500">
@@ -225,7 +300,7 @@ export default function SettingsPage() {
       </Section>
 
       <div className="flex items-center justify-center gap-2 pt-2 text-xs text-primary-400">
-        <Info className="h-4 w-4" /> MiGuantera · PWA offline-first · v1.0
+        <Info className="h-4 w-4" /> MiGuantera · PWA offline-first · v1.1
       </div>
 
       {/* Toast */}
