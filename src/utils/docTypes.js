@@ -4,6 +4,7 @@ import {
   FileText,
   ScrollText,
   Wrench,
+  Wind,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -57,6 +58,15 @@ export const DOC_TYPES = {
     scope: 'vehicle',
     hasExpiry: true,
   },
+  gases: {
+    key: 'gases',
+    label: 'Gases',
+    title: 'Certificado de Gases',
+    subtitle: 'Emisiones',
+    icon: Wind,
+    scope: 'vehicle',
+    hasExpiry: true,
+  },
   soap: {
     key: 'soap',
     label: 'SOAP',
@@ -76,8 +86,16 @@ export const VEHICLE_DOC_TYPES = DOC_TYPE_LIST.filter((d) => d.scope === 'vehicl
 /** Documentos personales del titular (no asociados a un vehículo). */
 export const DRIVER_DOC_TYPES = DOC_TYPE_LIST.filter((d) => d.scope === 'driver');
 
-/** Orden de las pestañas en Modo Control Policial. */
-export const INSPECTION_TABS = ['cedula', 'licencia', 'padron', 'permiso', 'revision'];
+/** Orden de las pestañas en Modo Control Policial (cédula primero). */
+export const INSPECTION_TABS = [
+  'cedula',
+  'licencia',
+  'padron',
+  'permiso',
+  'revision',
+  'gases',
+  'soap',
+];
 
 export function getDocType(key) {
   return DOC_TYPES[key] || null;
