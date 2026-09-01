@@ -4,21 +4,21 @@
       <stop stop-color="#131B2E" />
       <stop offset="1" stop-color="#0F172A" />
     </linearGradient>
-    <linearGradient id="folder" x1="128" y1="150" x2="384" y2="410" gradientUnits="userSpaceOnUse">
+    <linearGradient id="card" x1="104" y1="158" x2="408" y2="354" gradientUnits="userSpaceOnUse">
       <stop stop-color="#34D399" />
       <stop offset="1" stop-color="#059669" />
     </linearGradient>
-    <linearGradient id="folderFront" x1="128" y1="230" x2="384" y2="410" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6EE7B7" />
-      <stop offset="1" stop-color="#10B981" />
-    </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)" />
-  <!-- folder back tab -->
-  <path d="M132 168c0-13 11-24 24-24h84l30 34h114c13 0 24 11 24 24v40H132z" fill="url(#folder)" />
-  <!-- folder front -->
-  <rect x="120" y="196" width="272" height="196" rx="28" fill="url(#folderFront)" />
-  <!-- shield with check -->
-  <path d="M256 236l58 22v46c0 40-25 66-58 80-33-14-58-40-58-80v-46z" fill="#ffffff" fill-opacity="0.9" />
-  <path d="M232 300l18 18 34-40" stroke="#059669" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <!-- tarjeta de documento -->
+  <rect x="104" y="158" width="304" height="196" rx="30" fill="url(#card)" />
+  <!-- foto -->
+  <rect x="138" y="196" width="88" height="96" rx="14" fill="#ffffff" fill-opacity="0.92" />
+  <!-- líneas de datos -->
+  <rect x="250" y="200" width="122" height="16" rx="8" fill="#ffffff" fill-opacity="0.9" />
+  <rect x="250" y="236" width="122" height="16" rx="8" fill="#ffffff" fill-opacity="0.72" />
+  <rect x="250" y="272" width="80" height="16" rx="8" fill="#ffffff" fill-opacity="0.72" />
+  <!-- sello verificado -->
+  <circle cx="366" cy="316" r="30" fill="#ffffff" />
+  <path d="M352 316 l10 11 l20 -24" stroke="#047857" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none" />
 </svg>

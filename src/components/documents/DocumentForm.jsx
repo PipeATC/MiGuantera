@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cloud, RefreshCw, Download, Trash2, Save, Layers } from 'lucide-react';
+import { Cloud, RefreshCw, Download, Trash2, Save, Layers, User } from 'lucide-react';
 import DocumentSideField from './DocumentSideField.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { getDocType } from '../../utils/docTypes.js';
@@ -31,6 +31,9 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
     doc?.driverId || (meta.scope === 'driver' ? driverId || '' : '')
   );
   const [saving, setSaving] = useState(false);
+
+  // Conductor seleccionado: los datos del titular (nombre / RUN) se toman de aquí.
+  const selectedDriver = drivers.find((d) => d.id === assignedDriver) || null;
 
   // Archivo efectivo por cara (nuevo, existente o ninguno).
   const front = frontRemoved
@@ -65,7 +68,13 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
         backFileSize: back?.fileSize || 0,
         issueDate: issueDate || null,
         expiryDate: meta.hasExpiry ? expiryDate || null : null,
-        number,
+        // En documentos del conductor, el titular se deriva del conductor elegido.
+        number:
+          meta.scope === 'driver'
+            ? selectedDriver
+              ? [selectedDriver.name, selectedDriver.run].filter(Boolean).join(' · ')
+              : ''
+            : number,
         createdAt: doc?.createdAt,
       });
       onDone?.();
@@ -88,6 +97,66 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
 
   return (
     <div className="space-y-5">
+      {/* Asociación (arriba): conductor para cédula/licencia, vehículo para el resto */}
+      {meta.scope === 'driver' && (
+        <div>
+          <label className="label-field" htmlFor="doc-driver">
+            Conductor
+          </label>
+          <select
+            id="doc-driver"
+            value={assignedDriver}
+            onChange={(e) => setAssignedDriver(e.target.value)}
+            className="input-well"
+          >
+            <option value="">Selecciona un conductor</option>
+            {drivers.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name} {d.run ? `(${d.run})` : ''}
+              </option>
+            ))}
+          </select>
+          {selectedDriver ? (
+            <div className="mt-2 flex items-center gap-3 rounded-lg bg-primary-50 px-4 py-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700">
+                <User className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate font-bold text-primary-900">{selectedDriver.name}</p>
+                <p className="tabular truncate text-sm text-primary-500">
+                  {selectedDriver.run || 'Sin RUN'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-primary-500">
+              El titular del documento se toma de los datos del conductor.
+            </p>
+          )}
+        </div>
+      )}
+
+      {meta.scope === 'vehicle' && (
+        <div>
+          <label className="label-field" htmlFor="doc-vehicle">
+            Vehículo Asociado
+          </label>
+          <select
+            id="doc-vehicle"
+            value={assignedVehicle}
+            onChange={(e) => setAssignedVehicle(e.target.value)}
+            className="input-well"
+          >
+            <option value="">Sin asignar</option>
+            {vehicles.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name} {v.plate ? `(${v.plate})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Caras del documento */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <DocumentSideField
@@ -139,24 +208,22 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
         </div>
       )}
 
-      {/* Nº de documento */}
-      <div>
-        <label className="label-field" htmlFor="doc-number">
-          {type === 'licencia' || type === 'cedula'
-            ? 'Nombre / RUN del titular'
-            : 'Número de documento'}
-        </label>
-        <input
-          id="doc-number"
-          type="text"
-          value={number}
-          onChange={(e) => setNumber(e.target.value)}
-          placeholder={
-            type === 'licencia' || type === 'cedula' ? 'Ej: Ana María Rodríguez' : 'Opcional'
-          }
-          className="input-well"
-        />
-      </div>
+      {/* Nº de documento (solo documentos del vehículo) */}
+      {meta.scope === 'vehicle' && (
+        <div>
+          <label className="label-field" htmlFor="doc-number">
+            Número de documento
+          </label>
+          <input
+            id="doc-number"
+            type="text"
+            value={number}
+            onChange={(e) => setNumber(e.target.value)}
+            placeholder="Opcional"
+            className="input-well"
+          />
+        </div>
+      )}
 
       {/* Fechas */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -187,50 +254,6 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
           />
         </div>
       </div>
-
-      {/* Vehículo asociado */}
-      {meta.scope === 'vehicle' && (
-        <div>
-          <label className="label-field" htmlFor="doc-vehicle">
-            Vehículo Asociado
-          </label>
-          <select
-            id="doc-vehicle"
-            value={assignedVehicle}
-            onChange={(e) => setAssignedVehicle(e.target.value)}
-            className="input-well"
-          >
-            <option value="">Sin asignar</option>
-            {vehicles.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.name} {v.plate ? `(${v.plate})` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Conductor asociado */}
-      {meta.scope === 'driver' && (
-        <div>
-          <label className="label-field" htmlFor="doc-driver">
-            Conductor
-          </label>
-          <select
-            id="doc-driver"
-            value={assignedDriver}
-            onChange={(e) => setAssignedDriver(e.target.value)}
-            className="input-well"
-          >
-            <option value="">Sin asignar</option>
-            {drivers.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.name} {d.run ? `(${d.run})` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
 
       {/* Acciones */}
       <div className="space-y-2 pt-1">
