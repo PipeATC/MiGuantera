@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="b_bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#131B2E" />
+      <stop offset="1" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="b_shield" x1="116" y1="92" x2="396" y2="432" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399" />
+      <stop offset="1" stop-color="#059669" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#b_bg)" />
+  <!-- escudo -->
+  <path d="M256 92 L396 144 V268 C396 356 334 404 256 432 C178 404 116 356 116 268 V144 Z" fill="url(#b_shield)" />
+  <!-- realce interior -->
+  <path d="M256 128 L364 168 V268 C364 336 316 375 256 398 C196 375 148 336 148 268 V168 Z" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="6" />
+  <!-- check -->
+  <path d="M196 258 L242 304 L322 200" stroke="#ffffff" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

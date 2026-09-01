@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="a_bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#131B2E" />
+      <stop offset="1" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="a_back" x1="196" y1="156" x2="316" y2="204" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34D399" />
+      <stop offset="1" stop-color="#059669" />
+    </linearGradient>
+    <linearGradient id="a_front" x1="116" y1="190" x2="396" y2="356" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6EE7B7" />
+      <stop offset="1" stop-color="#10B981" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#a_bg)" />
+  <!-- pestaña centrada -->
+  <path d="M214 156 h84 a18 18 0 0 1 18 18 v30 h-120 v-30 a18 18 0 0 1 18 -18 z" fill="url(#a_back)" />
+  <!-- cuerpo de la carpeta -->
+  <rect x="116" y="190" width="280" height="166" rx="30" fill="url(#a_front)" />
+  <!-- escudo con check -->
+  <path d="M256 216 L316 238 L316 288 C316 320 290 340 256 352 C222 340 196 320 196 288 L196 238 Z" fill="#ffffff" fill-opacity="0.94" />
+  <path d="M228 286 L250 308 L288 262" stroke="#047857" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+</svg>

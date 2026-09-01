@@ -1,19 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
   <defs>
-    <linearGradient id="folderM" x1="150" y1="185" x2="362" y2="380" gradientUnits="userSpaceOnUse">
+    <linearGradient id="cardM" x1="104" y1="158" x2="408" y2="354" gradientUnits="userSpaceOnUse">
       <stop stop-color="#34D399" />
       <stop offset="1" stop-color="#059669" />
     </linearGradient>
-    <linearGradient id="folderFrontM" x1="150" y1="235" x2="362" y2="380" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#6EE7B7" />
-      <stop offset="1" stop-color="#10B981" />
-    </linearGradient>
   </defs>
-  <!-- Full-bleed safe-zone background for maskable -->
+  <!-- Fondo a sangre completa para maskable -->
   <rect width="512" height="512" fill="#0F172A" />
-  <!-- folder back tab (kept within ~80% safe zone) -->
-  <path d="M160 196c0-11 9-20 20-20h70l25 28h95c11 0 20 9 20 20v34H160z" fill="url(#folderM)" />
-  <rect x="150" y="218" width="212" height="150" rx="22" fill="url(#folderFrontM)" />
-  <path d="M256 250l46 17v36c0 32-20 52-46 63-26-11-46-31-46-63v-36z" fill="#ffffff" fill-opacity="0.92" />
-  <path d="M237 302l15 15 27-32" stroke="#059669" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  <!-- Contenido escalado dentro de la zona segura (~86%) -->
+  <g transform="translate(256 256) scale(0.86) translate(-256 -256)">
+    <rect x="104" y="158" width="304" height="196" rx="30" fill="url(#cardM)" />
+    <rect x="138" y="196" width="88" height="96" rx="14" fill="#ffffff" fill-opacity="0.92" />
+    <rect x="250" y="200" width="122" height="16" rx="8" fill="#ffffff" fill-opacity="0.9" />
+    <rect x="250" y="236" width="122" height="16" rx="8" fill="#ffffff" fill-opacity="0.72" />
+    <rect x="250" y="272" width="80" height="16" rx="8" fill="#ffffff" fill-opacity="0.72" />
+    <circle cx="366" cy="316" r="30" fill="#ffffff" />
+    <path d="M352 316 l10 11 l20 -24" stroke="#047857" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  </g>
 </svg>
