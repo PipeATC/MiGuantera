@@ -61,7 +61,7 @@ src/
 ├── App.jsx                  # Layout y rutas
 ├── index.css                # Tailwind + componentes tácticos
 ├── context/
-│   └── AppContext.jsx       # Estado global (vehículos, documentos, ajustes)
+│   └── AppContext.jsx       # Estado global (vehículos, conductores, documentos, ajustes)
 ├── db/
 │   └── database.js          # IndexedDB (idb): CRUD + respaldo + storage estimate
 ├── hooks/
@@ -79,16 +79,27 @@ src/
 │   └── reminders.js         # Recordatorios + notificaciones locales
 ├── components/
 │   ├── layout/              # TopBar, BottomNav, InstallBanner
-│   ├── ui/                  # Modal, StatusBadge, FileViewer, SwipeViewer, EmptyState
-│   ├── documents/           # DocumentCard/Form/Upload/SideField, LicenseCard, ReminderBanner
+│   ├── ui/                  # Modal, StatusBadge, FileViewer, SwipeViewer, FullscreenDoc, EmptyState
+│   ├── documents/           # DocumentCard/Form/Upload/SideField
 │   ├── security/            # LockScreen (compuerta de bloqueo)
-│   └── vehicles/            # VehicleSelector, VehicleForm
+│   ├── drivers/             # DriverForm
+│   └── vehicles/            # VehicleForm
 └── pages/
-    ├── HomePage.jsx         # Dashboard (Inicio)
-    ├── InspectionPage.jsx   # Modo Control Policial
-    ├── ManagementPage.jsx   # Gestión de documentos
+    ├── HomePage.jsx         # Inicio: listado de conductores y vehículos (accesos directos)
+    ├── InspectionPage.jsx   # Modo Control Policial (cambio de vehículo/conductor + pantalla completa)
+    ├── ManagementPage.jsx   # Gestión de vehículos, conductores y sus documentos
     └── SettingsPage.jsx     # Ajustes / respaldo / privacidad
 ```
+
+## 🧭 Flujo de uso
+
+- **Inicio.** No muestra datos de documentos: solo el **listado de conductores y
+  vehículos**. Tocar un vehículo (o un conductor) entra directo al **Modo Inspección**.
+- **Inspección.** Toca la **patente** para cambiar de vehículo y el **conductor** para
+  cambiar de titular; un botón abre el documento a **pantalla completa**. La cédula y la
+  licencia mostradas corresponden al conductor activo; el resto, al vehículo activo.
+- **Gestión.** Pestañas **Vehículos** y **Conductores** para agregar, editar y eliminar,
+  y para administrar los documentos de cada uno.
 
 ## 🔐 Privacidad
 
@@ -99,11 +110,13 @@ Todos los datos viven en el `IndexedDB` de **tu** navegador. Para moverlos a otr
 
 ```ts
 Vehicle  = { id, name, plate, brand, model, year, type }
-Document = { id, vehicleId, type,
+Driver   = { id, name, run, phone, notes }
+Document = { id, vehicleId, driverId, type,                     // vehicleId XOR driverId según el tipo
              fileName, fileBlob, fileType, fileSize,          // anverso
              backFileName, backBlob, backFileType, backFileSize, // reverso
              issueDate, expiryDate, number, lastUpdated }
 // type ∈ 'cedula' | 'licencia' | 'padron' | 'permiso' | 'revision' | 'gases' | 'soap'
+// 'cedula' y 'licencia' pertenecen a un conductor (driverId); el resto, a un vehículo (vehicleId)
 
 // Ajuste de seguridad (IndexedDB store `settings`)
 securityLock = { enabled, credentialId, method: 'webauthn', createdAt }

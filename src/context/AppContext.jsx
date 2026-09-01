@@ -8,9 +8,12 @@ import {
 } from 'react';
 import {
   getAllVehicles,
+  getAllDrivers,
   getAllDocuments,
   saveVehicle as dbSaveVehicle,
   deleteVehicle as dbDeleteVehicle,
+  saveDriver as dbSaveDriver,
+  deleteDriver as dbDeleteDriver,
   saveDocument as dbSaveDocument,
   deleteDocument as dbDeleteDocument,
   getSetting,
@@ -27,39 +30,49 @@ const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
   const [vehicles, setVehicles] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [driverName, setDriverName] = useState('');
   const [warnDays, setWarnDaysState] = useState(DEFAULT_WARN_DAYS);
   const [activeVehicleId, setActiveVehicleId] = useState(null);
+  const [activeDriverId, setActiveDriverId] = useState(null);
   // Bloqueo de seguridad (biometría / PIN del dispositivo)
   const [securityLock, setSecurityLockState] = useState(null); // { enabled, credentialId }
   const [locked, setLocked] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [v, d] = await Promise.all([getAllVehicles(), getAllDocuments()]);
+    const [v, dr, d] = await Promise.all([
+      getAllVehicles(),
+      getAllDrivers(),
+      getAllDocuments(),
+    ]);
     setVehicles(v);
+    setDrivers(dr);
     setDocuments(d);
-    return { vehicles: v, documents: d };
+    return { vehicles: v, drivers: dr, documents: d };
   }, []);
 
   // Carga inicial
   useEffect(() => {
     (async () => {
-      const [v, d, name, wd, sl] = await Promise.all([
+      const [v, dr, d, name, wd, sl] = await Promise.all([
         getAllVehicles(),
+        getAllDrivers(),
         getAllDocuments(),
         getSetting('driverName', ''),
         getSetting('warnDays', DEFAULT_WARN_DAYS),
         getSetting('securityLock', null),
       ]);
       setVehicles(v);
+      setDrivers(dr);
       setDocuments(d);
       setDriverName(name || '');
       setWarnDaysState(Number(wd) || DEFAULT_WARN_DAYS);
       setSecurityLockState(sl);
       setLocked(!!(sl && sl.enabled)); // arrancar bloqueado si está activo
       setActiveVehicleId((prev) => prev || (v[0] ? v[0].id : null));
+      setActiveDriverId((prev) => prev || (dr[0] ? dr[0].id : null));
       setLoading(false);
     })();
   }, []);
@@ -96,6 +109,19 @@ export function AppProvider({ children }) {
     await dbDeleteVehicle(id);
     const { vehicles: v } = await refresh();
     setActiveVehicleId((prev) => (prev === id ? (v[0] ? v[0].id : null) : prev));
+  }, [refresh]);
+
+  const saveDriver = useCallback(async (driver) => {
+    const rec = await dbSaveDriver(driver);
+    await refresh();
+    setActiveDriverId((prev) => prev || rec.id);
+    return rec;
+  }, [refresh]);
+
+  const removeDriver = useCallback(async (id) => {
+    await dbDeleteDriver(id);
+    const { drivers: dr } = await refresh();
+    setActiveDriverId((prev) => (prev === id ? (dr[0] ? dr[0].id : null) : prev));
   }, [refresh]);
 
   const saveDocument = useCallback(async (doc) => {
@@ -145,9 +171,19 @@ export function AppProvider({ children }) {
   const documentsByVehicle = useMemo(() => {
     const map = new Map();
     for (const doc of documents) {
-      const key = doc.vehicleId || '__driver__';
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(doc);
+      if (!doc.vehicleId) continue;
+      if (!map.has(doc.vehicleId)) map.set(doc.vehicleId, []);
+      map.get(doc.vehicleId).push(doc);
+    }
+    return map;
+  }, [documents]);
+
+  const documentsByDriver = useMemo(() => {
+    const map = new Map();
+    for (const doc of documents) {
+      if (!doc.driverId) continue;
+      if (!map.has(doc.driverId)) map.set(doc.driverId, []);
+      map.get(doc.driverId).push(doc);
     }
     return map;
   }, [documents]);
@@ -155,6 +191,11 @@ export function AppProvider({ children }) {
   const activeVehicle = useMemo(
     () => vehicles.find((v) => v.id === activeVehicleId) || null,
     [vehicles, activeVehicleId]
+  );
+
+  const activeDriver = useMemo(
+    () => drivers.find((d) => d.id === activeDriverId) || null,
+    [drivers, activeDriverId]
   );
 
   const pendingReminders = useMemo(
@@ -165,11 +206,16 @@ export function AppProvider({ children }) {
   const value = {
     loading,
     vehicles,
+    drivers,
     documents,
     documentsByVehicle,
+    documentsByDriver,
     activeVehicle,
     activeVehicleId,
     setActiveVehicleId,
+    activeDriver,
+    activeDriverId,
+    setActiveDriverId,
     driverName,
     warnDays,
     pendingReminders,
@@ -181,6 +227,8 @@ export function AppProvider({ children }) {
     refresh,
     saveVehicle,
     removeVehicle,
+    saveDriver,
+    removeDriver,
     saveDocument,
     removeDocument,
     updateDriverName,

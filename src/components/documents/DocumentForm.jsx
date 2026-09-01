@@ -11,8 +11,8 @@ import { formatBytes, downloadBlob } from '../../utils/fileUtils.js';
  * type: clave del tipo de documento. doc: registro existente o null.
  * vehicleId: vehículo asociado por defecto.
  */
-export default function DocumentForm({ type, doc, vehicleId, onDone }) {
-  const { vehicles, saveDocument, removeDocument } = useApp();
+export default function DocumentForm({ type, doc, vehicleId, driverId, onDone }) {
+  const { vehicles, drivers, saveDocument, removeDocument } = useApp();
   const meta = getDocType(type);
 
   // Estado por cara: pending = nuevo archivo elegido; removed = quitar el existente.
@@ -26,6 +26,9 @@ export default function DocumentForm({ type, doc, vehicleId, onDone }) {
   const [number, setNumber] = useState(doc?.number || '');
   const [assignedVehicle, setAssignedVehicle] = useState(
     doc?.vehicleId || (meta.scope === 'vehicle' ? vehicleId || '' : '')
+  );
+  const [assignedDriver, setAssignedDriver] = useState(
+    doc?.driverId || (meta.scope === 'driver' ? driverId || '' : '')
   );
   const [saving, setSaving] = useState(false);
 
@@ -51,6 +54,7 @@ export default function DocumentForm({ type, doc, vehicleId, onDone }) {
         id: doc?.id,
         type,
         vehicleId: meta.scope === 'vehicle' ? assignedVehicle || null : null,
+        driverId: meta.scope === 'driver' ? assignedDriver || null : null,
         fileBlob: front?.blob || null,
         fileName: front?.fileName || '',
         fileType: front?.fileType || '',
@@ -200,6 +204,28 @@ export default function DocumentForm({ type, doc, vehicleId, onDone }) {
             {vehicles.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.name} {v.plate ? `(${v.plate})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Conductor asociado */}
+      {meta.scope === 'driver' && (
+        <div>
+          <label className="label-field" htmlFor="doc-driver">
+            Conductor
+          </label>
+          <select
+            id="doc-driver"
+            value={assignedDriver}
+            onChange={(e) => setAssignedDriver(e.target.value)}
+            className="input-well"
+          >
+            <option value="">Sin asignar</option>
+            {drivers.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name} {d.run ? `(${d.run})` : ''}
               </option>
             ))}
           </select>

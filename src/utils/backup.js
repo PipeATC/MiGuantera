@@ -7,8 +7,10 @@
 
 import {
   getAllVehicles,
+  getAllDrivers,
   getAllDocuments,
   saveVehicle,
+  saveDriver,
   saveDocument,
   clearAllData,
   getSetting,
@@ -16,13 +18,16 @@ import {
 } from '../db/database.js';
 import { blobToBase64, base64ToBlob, downloadBlob } from './fileUtils.js';
 
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 export const BACKUP_MAGIC = 'miguantera-backup';
+
+const DRIVER_DOC_KEYS = new Set(['cedula', 'licencia']);
 
 /** Construye el objeto de respaldo (con archivos en Base64). */
 export async function buildBackup() {
-  const [vehicles, documents] = await Promise.all([
+  const [vehicles, drivers, documents] = await Promise.all([
     getAllVehicles(),
+    getAllDrivers(),
     getAllDocuments(),
   ]);
 
@@ -44,6 +49,7 @@ export async function buildBackup() {
     app: 'MiGuantera',
     settings: { driverName },
     vehicles,
+    drivers,
     documents: docsSerialized,
   };
 }
@@ -57,6 +63,7 @@ export async function exportBackup() {
   downloadBlob(blob, `miguantera-backup-${stamp}.json`);
   return {
     vehicles: backup.vehicles.length,
+    drivers: backup.drivers.length,
     documents: backup.documents.length,
     size: blob.size,
   };
@@ -88,6 +95,26 @@ export async function importBackup(data, opts = {}) {
     await saveVehicle(vehicle);
   }
 
+  const drivers = Array.isArray(data.drivers) ? data.drivers : [];
+  for (const driver of drivers) {
+    await saveDriver(driver);
+  }
+
+  // Compatibilidad con respaldos antiguos (v2): sin lista de conductores,
+  // pero con documentos personales. Se crea un conductor y se le reasignan.
+  let legacyDriverId = null;
+  if (!drivers.length) {
+    const hasDriverDocs = data.documents.some((d) => DRIVER_DOC_KEYS.has(d.type));
+    const legacyName =
+      (data.settings && typeof data.settings.driverName === 'string'
+        ? data.settings.driverName
+        : '') || '';
+    if (hasDriverDocs || legacyName.trim()) {
+      const rec = await saveDriver({ name: legacyName.trim() || 'Conductor' });
+      legacyDriverId = rec.id;
+    }
+  }
+
   for (const doc of data.documents) {
     const { fileBase64, backFileBase64, ...rest } = doc;
     const fileBlob = fileBase64
@@ -96,7 +123,14 @@ export async function importBackup(data, opts = {}) {
     const backBlob = backFileBase64
       ? base64ToBlob(backFileBase64, rest.backFileType || 'application/octet-stream')
       : null;
-    await saveDocument({ ...rest, fileBlob, backBlob });
+    const isDriverDoc = DRIVER_DOC_KEYS.has(rest.type);
+    await saveDocument({
+      ...rest,
+      driverId: isDriverDoc ? rest.driverId || legacyDriverId : null,
+      vehicleId: isDriverDoc ? null : rest.vehicleId || null,
+      fileBlob,
+      backBlob,
+    });
   }
 
   if (data.settings && typeof data.settings.driverName === 'string') {
@@ -105,6 +139,7 @@ export async function importBackup(data, opts = {}) {
 
   return {
     vehicles: data.vehicles.length,
+    drivers: drivers.length || (legacyDriverId ? 1 : 0),
     documents: data.documents.length,
   };
 }
