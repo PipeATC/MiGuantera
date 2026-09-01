@@ -22,14 +22,14 @@ function Splash() {
 }
 
 export default function App() {
-  const { loading, securityLock, locked } = useApp();
+  const { loading, authed } = useApp();
   const location = useLocation();
   const isInspection = location.pathname === '/inspeccion';
 
   if (loading) return <Splash />;
 
-  // Compuerta de seguridad: exige verificación del dispositivo al abrir la app.
-  if (securityLock?.enabled && locked) return <LockScreen />;
+  // Compuerta de acceso: PIN obligatorio (crear o ingresar) antes de la app.
+  if (!authed) return <LockScreen />;
 
   // Modo Inspección: pantalla completa sin chrome
   if (isInspection) {

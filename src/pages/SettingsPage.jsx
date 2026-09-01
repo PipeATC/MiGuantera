@@ -7,6 +7,7 @@ import {
   Trash2,
   ShieldCheck,
   Fingerprint,
+  KeyRound,
   Info,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
@@ -45,6 +46,7 @@ export default function SettingsPage() {
     securityLock,
     enableSecurityLock,
     disableSecurityLock,
+    changePin,
   } = useApp();
 
   const [storage, setStorage] = useState({ usage: 0, quota: 0 });
@@ -52,6 +54,9 @@ export default function SettingsPage() {
   const [lockSupported, setLockSupported] = useState(null); // null = comprobando
   const [lockBusy, setLockBusy] = useState(false);
   const [toast, setToast] = useState('');
+  const [pinEditing, setPinEditing] = useState(false);
+  const [pinBusy, setPinBusy] = useState(false);
+  const [pinForm, setPinForm] = useState({ current: '', next: '', confirm: '' });
   const importRef = useRef(null);
 
   useEffect(() => {
@@ -100,6 +105,28 @@ export default function SettingsPage() {
     const perm = await requestNotificationPermission();
     setNotifPerm(perm);
     flash(perm === 'granted' ? 'Recordatorios activados.' : 'Permiso de notificaciones denegado.');
+  };
+
+  const setPin = (k) => (e) =>
+    setPinForm((f) => ({ ...f, [k]: e.target.value.replace(/\D/g, '').slice(0, 4) }));
+
+  const handleChangePin = async () => {
+    const { current, next, confirm } = pinForm;
+    if (!/^\d{4}$/.test(next)) return flash('El nuevo PIN debe tener 4 dígitos.');
+    if (next !== confirm) return flash('El nuevo PIN no coincide.');
+    setPinBusy(true);
+    try {
+      const ok = await changePin(current, next);
+      if (ok) {
+        flash('PIN actualizado.');
+        setPinForm({ current: '', next: '', confirm: '' });
+        setPinEditing(false);
+      } else {
+        flash('PIN actual incorrecto.');
+      }
+    } finally {
+      setPinBusy(false);
+    }
   };
 
   const handleToggleLock = async () => {
@@ -184,12 +211,70 @@ export default function SettingsPage() {
         )}
       </Section>
 
-      {/* Seguridad */}
-      <Section icon={Fingerprint} title="Bloqueo de seguridad">
+      {/* PIN de acceso */}
+      <Section icon={KeyRound} title="PIN de acceso">
         <p className="mb-3 text-sm text-primary-500">
-          Protege tus documentos con el método de tu dispositivo: biometría (huella o
-          rostro) en el teléfono, o Windows Hello (PIN / huella) en el computador. Se pedirá
-          al abrir la app.
+          Tu PIN de 4 dígitos protege el acceso a MiGuantera y se pide al abrir la app.
+        </p>
+        {!pinEditing ? (
+          <button onClick={() => setPinEditing(true)} className="btn-secondary !w-auto px-5">
+            Cambiar PIN
+          </button>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <input
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="PIN actual"
+                value={pinForm.current}
+                onChange={setPin('current')}
+                className="input-well tabular text-center tracking-[0.4em]"
+              />
+              <input
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Nuevo PIN"
+                value={pinForm.next}
+                onChange={setPin('next')}
+                className="input-well tabular text-center tracking-[0.4em]"
+              />
+              <input
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Confirmar"
+                value={pinForm.confirm}
+                onChange={setPin('confirm')}
+                className="input-well tabular text-center tracking-[0.4em]"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setPinEditing(false);
+                  setPinForm({ current: '', next: '', confirm: '' });
+                }}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button onClick={handleChangePin} disabled={pinBusy} className="btn-primary disabled:opacity-60">
+                {pinBusy ? '…' : 'Guardar PIN'}
+              </button>
+            </div>
+          </div>
+        )}
+      </Section>
+
+      {/* Seguridad */}
+      <Section icon={Fingerprint} title="Biometría (opcional)">
+        <p className="mb-3 text-sm text-primary-500">
+          Suma un desbloqueo con el método de tu dispositivo —biometría (huella o rostro)
+          en el teléfono, o Windows Hello (PIN / huella) en el computador— como complemento
+          a tu PIN al abrir la app.
         </p>
 
         {lockSupported === false ? (
@@ -205,10 +290,10 @@ export default function SettingsPage() {
               </p>
               <p className="text-primary-500">
                 {securityLock?.enabled
-                  ? 'La app pide verificación al abrirse.'
+                  ? 'Disponible como atajo en la pantalla de PIN.'
                   : lockSupported === null
                     ? 'Comprobando compatibilidad…'
-                    : 'Toca para activar la verificación.'}
+                    : 'Toca para activar el desbloqueo por biometría.'}
               </p>
             </div>
             <button
