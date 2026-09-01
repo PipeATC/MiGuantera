@@ -1,113 +1,218 @@
 import { useState } from 'react';
-import { FileUp, FolderOpen, ChevronRight, Plus } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Car, Bike, User, Plus, Pencil, Users, CarFront } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
-import StatusBadge from '../components/ui/StatusBadge.jsx';
+import DocumentCard from '../components/documents/DocumentCard.jsx';
 import DocumentForm from '../components/documents/DocumentForm.jsx';
-import { DOC_TYPE_LIST, getDocType } from '../utils/docTypes.js';
-import { formatDateShort, daysLabel } from '../utils/dateUtils.js';
-import { formatBytes } from '../utils/fileUtils.js';
-
-function DocRow({ doc, vehicle, onClick }) {
-  const type = getDocType(doc.type);
-  const Icon = type.icon;
-  return (
-    <button
-      onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl bg-white p-3.5 text-left shadow-card ring-1 ring-primary-100 transition active:scale-[0.99]"
-    >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary-100 text-primary-600">
-        <Icon className="h-5 w-5" strokeWidth={2} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-bold text-primary-900">{type.title}</p>
-        <p className="truncate text-sm text-primary-500">
-          {vehicle ? `${vehicle.name}` : type.scope === 'driver' ? 'Titular' : 'Sin asignar'}
-          {doc.expiryDate ? ` · ${daysLabel(doc.expiryDate)}` : ''}
-          {doc.backBlob ? ' · 2 caras' : ''}
-          {doc.fileSize ? ` · ${formatBytes(doc.fileSize)}` : ''}
-        </p>
-      </div>
-      {type.hasExpiry && doc.expiryDate ? (
-        <StatusBadge expiryDate={doc.expiryDate} size="sm" showIcon={false} />
-      ) : null}
-      <ChevronRight className="h-5 w-5 shrink-0 text-primary-300" />
-    </button>
-  );
-}
+import VehicleForm from '../components/vehicles/VehicleForm.jsx';
+import DriverForm from '../components/drivers/DriverForm.jsx';
+import { VEHICLE_DOC_TYPES, DRIVER_DOC_TYPES, getDocType } from '../utils/docTypes.js';
 
 export default function ManagementPage() {
-  const { documents, vehicles, activeVehicleId } = useApp();
-  const [docModal, setDocModal] = useState(null); // { type, doc }
-  const [picker, setPicker] = useState(false);
+  const {
+    vehicles,
+    drivers,
+    documentsByVehicle,
+    documentsByDriver,
+    warnDays,
+  } = useApp();
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'conductores' ? 'conductores' : 'vehiculos';
+  const setTab = (t) => setParams({ tab: t }, { replace: true });
 
-  const vehById = new Map(vehicles.map((v) => [v.id, v]));
-  const sorted = [...documents].sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+  const [vehicleModal, setVehicleModal] = useState(null); // { vehicle } | 'new'
+  const [driverModal, setDriverModal] = useState(null); // { driver } | 'new'
+  const [docModal, setDocModal] = useState(null); // { type, doc, vehicleId, driverId }
+
+  const docByType = (list, key) => (list || []).find((d) => d.type === key) || null;
 
   return (
     <div className="mx-auto max-w-lg space-y-5 px-5 pb-28 pt-4">
       <div>
-        <h1 className="text-headline-md text-primary-900">Gestión de Documentos</h1>
-        <p className="text-sm text-primary-500">Sube, actualiza y organiza tus archivos.</p>
+        <h1 className="text-headline-md text-primary-900">Gestión</h1>
+        <p className="text-sm text-primary-500">
+          Administra vehículos, conductores y sus documentos.
+        </p>
       </div>
 
-      <button
-        onClick={() => setPicker(true)}
-        className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-primary-900 font-bold text-white shadow-card transition active:scale-[0.98]"
-      >
-        <FileUp className="h-5 w-5" /> Subir nuevo documento
-      </button>
+      {/* Segmentos */}
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-primary-100 p-1">
+        {[
+          { key: 'vehiculos', label: 'Vehículos', Icon: CarFront },
+          { key: 'conductores', label: 'Conductores', Icon: Users },
+        ].map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-bold transition ${
+              tab === key ? 'bg-white text-primary-900 shadow-card' : 'text-primary-500'
+            }`}
+          >
+            <Icon className="h-4 w-4" /> {label}
+          </button>
+        ))}
+      </div>
 
-      {sorted.length === 0 ? (
-        <EmptyState
-          icon={FolderOpen}
-          title="Sin documentos aún"
-          description="Sube tu primer documento para tenerlo disponible sin conexión."
-        />
-      ) : (
-        <div className="space-y-2.5">
-          {sorted.map((doc) => (
-            <DocRow
-              key={doc.id}
-              doc={doc}
-              vehicle={doc.vehicleId ? vehById.get(doc.vehicleId) : null}
-              onClick={() => setDocModal({ type: doc.type, doc })}
+      {/* ------------------------------ VEHÍCULOS ------------------------------ */}
+      {tab === 'vehiculos' && (
+        <div className="space-y-4">
+          <button
+            onClick={() => setVehicleModal('new')}
+            className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-primary-900 font-bold text-white shadow-card transition active:scale-[0.98]"
+          >
+            <Plus className="h-5 w-5" /> Agregar vehículo
+          </button>
+
+          {vehicles.length === 0 ? (
+            <EmptyState
+              icon={Car}
+              title="Sin vehículos"
+              description="Agrega un vehículo para gestionar sus documentos."
             />
-          ))}
+          ) : (
+            vehicles.map((v) => {
+              const Icon = v.type === 'moto' ? Bike : Car;
+              const docs = documentsByVehicle.get(v.id);
+              return (
+                <section key={v.id} className="card-tactile p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-900 text-white">
+                      <Icon className="h-6 w-6" strokeWidth={2} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-base font-bold text-primary-900">{v.name}</p>
+                      <p className="tabular truncate text-sm text-primary-500">
+                        {v.plate || 'Sin patente'}
+                        {v.brand ? ` · ${v.brand}` : ''}
+                        {v.model ? ` ${v.model}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setVehicleModal({ vehicle: v })}
+                      className="flex items-center gap-1 rounded-lg bg-primary-100 px-3 py-2 text-sm font-semibold text-primary-700 active:scale-95"
+                    >
+                      <Pencil className="h-4 w-4" /> Editar
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    {VEHICLE_DOC_TYPES.map((type) => (
+                      <DocumentCard
+                        key={type.key}
+                        type={type}
+                        doc={docByType(docs, type.key)}
+                        warnDays={warnDays}
+                        onClick={() =>
+                          setDocModal({
+                            type: type.key,
+                            doc: docByType(docs, type.key),
+                            vehicleId: v.id,
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })
+          )}
         </div>
       )}
 
-      {/* Selector de tipo de documento nuevo */}
-      <Modal
-        open={picker}
-        onClose={() => setPicker(false)}
-        subtitle="Nuevo documento"
-        title="¿Qué vas a subir?"
-      >
-        <div className="grid grid-cols-2 gap-3">
-          {DOC_TYPE_LIST.map((type) => {
-            const Icon = type.icon;
-            return (
-              <button
-                key={type.key}
-                onClick={() => {
-                  setPicker(false);
-                  setDocModal({ type: type.key, doc: null });
-                }}
-                className="flex flex-col items-start gap-2 rounded-xl bg-white p-4 text-left shadow-card ring-1 ring-primary-100 transition active:scale-[0.98]"
-              >
-                <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-primary-100 text-primary-700">
-                  <Icon className="h-5 w-5" />
-                </span>
-                <span className="font-bold text-primary-900">{type.title}</span>
-                <span className="flex items-center gap-1 text-xs font-semibold text-brand-600">
-                  <Plus className="h-3.5 w-3.5" /> Agregar
-                </span>
-              </button>
-            );
-          })}
+      {/* ----------------------------- CONDUCTORES ----------------------------- */}
+      {tab === 'conductores' && (
+        <div className="space-y-4">
+          <button
+            onClick={() => setDriverModal('new')}
+            className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-primary-900 font-bold text-white shadow-card transition active:scale-[0.98]"
+          >
+            <Plus className="h-5 w-5" /> Agregar conductor
+          </button>
+
+          {drivers.length === 0 ? (
+            <EmptyState
+              icon={User}
+              title="Sin conductores"
+              description="Agrega un conductor para gestionar su cédula y licencia."
+            />
+          ) : (
+            drivers.map((d) => {
+              const docs = documentsByDriver.get(d.id);
+              return (
+                <section key={d.id} className="card-tactile p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700">
+                      <User className="h-6 w-6" strokeWidth={2} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-base font-bold text-primary-900">{d.name}</p>
+                      <p className="tabular truncate text-sm text-primary-500">
+                        {d.run || 'Sin RUN'}
+                        {d.phone ? ` · ${d.phone}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setDriverModal({ driver: d })}
+                      className="flex items-center gap-1 rounded-lg bg-primary-100 px-3 py-2 text-sm font-semibold text-primary-700 active:scale-95"
+                    >
+                      <Pencil className="h-4 w-4" /> Editar
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    {DRIVER_DOC_TYPES.map((type) => (
+                      <DocumentCard
+                        key={type.key}
+                        type={type}
+                        doc={docByType(docs, type.key)}
+                        warnDays={warnDays}
+                        onClick={() =>
+                          setDocModal({
+                            type: type.key,
+                            doc: docByType(docs, type.key),
+                            driverId: d.id,
+                          })
+                        }
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })
+          )}
         </div>
+      )}
+
+      {/* Modal vehículo */}
+      <Modal
+        open={!!vehicleModal}
+        onClose={() => setVehicleModal(null)}
+        subtitle={vehicleModal?.vehicle ? 'Editar' : 'Nuevo'}
+        title={vehicleModal?.vehicle ? 'Editar vehículo' : 'Agregar vehículo'}
+      >
+        {vehicleModal && (
+          <VehicleForm
+            vehicle={vehicleModal === 'new' ? null : vehicleModal.vehicle}
+            onDone={() => setVehicleModal(null)}
+          />
+        )}
+      </Modal>
+
+      {/* Modal conductor */}
+      <Modal
+        open={!!driverModal}
+        onClose={() => setDriverModal(null)}
+        subtitle={driverModal?.driver ? 'Editar' : 'Nuevo'}
+        title={driverModal?.driver ? 'Editar conductor' : 'Agregar conductor'}
+      >
+        {driverModal && (
+          <DriverForm
+            driver={driverModal === 'new' ? null : driverModal.driver}
+            onDone={() => setDriverModal(null)}
+          />
+        )}
       </Modal>
 
       {/* Editor de documento */}
@@ -121,7 +226,8 @@ export default function ManagementPage() {
           <DocumentForm
             type={docModal.type}
             doc={docModal.doc}
-            vehicleId={activeVehicleId}
+            vehicleId={docModal.vehicleId}
+            driverId={docModal.driverId}
             onDone={() => setDocModal(null)}
           />
         )}

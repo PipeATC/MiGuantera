@@ -5,16 +5,26 @@ import {
   Sun,
   Plus,
   Minus,
+  Maximize2,
+  ChevronDown,
+  Check,
+  User,
+  Car,
+  Bike,
   CheckCircle2,
   AlertTriangle,
   XCircle,
   ShieldQuestion,
-  Car,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
 import { useWakeLock } from '../hooks/useWakeLock.js';
 import SwipeViewer from '../components/ui/SwipeViewer.jsx';
-import { INSPECTION_TABS, getDocType } from '../utils/docTypes.js';
+import FullscreenDoc from '../components/ui/FullscreenDoc.jsx';
+import {
+  INSPECTION_TABS,
+  DRIVER_INSPECTION_TABS,
+  getDocType,
+} from '../utils/docTypes.js';
 import { getExpiryStatus, formatDateShort, daysLabel } from '../utils/dateUtils.js';
 
 const STATUS_UI = {
@@ -24,42 +34,103 @@ const STATUS_UI = {
   'sin-fecha': { label: 'Sin fecha', Icon: ShieldQuestion, ring: 'bg-slate-500', text: 'text-slate-300', panel: 'bg-slate-800/60 ring-slate-500/30' },
 };
 
+const isDriverTab = (t) => DRIVER_INSPECTION_TABS.includes(t);
+
+/** Hoja inferior de selección (vehículo / conductor) sobre fondo oscuro. */
+function PickerSheet({ open, title, items, activeId, onSelect, onClose, renderItem }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end justify-center" role="dialog" aria-modal="true">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden="true" />
+      <div className="relative z-10 max-h-[70vh] w-full max-w-lg overflow-y-auto rounded-t-xl bg-primary-900 p-4 pb-safe text-white shadow-card no-scrollbar">
+        <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-white/20" />
+        <h3 className="mb-3 px-1 text-sm font-bold uppercase tracking-widest text-white/60">{title}</h3>
+        <div className="space-y-2">
+          {items.length === 0 ? (
+            <p className="px-1 py-6 text-center text-sm text-white/50">No hay registros.</p>
+          ) : (
+            items.map((it) => {
+              const active = it.id === activeId;
+              return (
+                <button
+                  key={it.id}
+                  onClick={() => {
+                    onSelect(it.id);
+                    onClose();
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left transition ${
+                    active ? 'bg-emerald-600' : 'bg-white/5 active:bg-white/10'
+                  }`}
+                >
+                  <span className="min-w-0 flex-1">{renderItem(it)}</span>
+                  {active && <Check className="h-5 w-5 shrink-0" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Modo Control Policial: renderizador full-screen de alto contraste.
  * - Mantiene la pantalla encendida (Wake Lock).
+ * - Toca la patente para cambiar de vehículo; toca el conductor para cambiarlo.
  * - Barra inferior fija para cambiar de documento con un toque.
- * - Zoom de imágenes con botones grandes.
+ * - Botón para ver el documento a pantalla completa.
  */
 export default function InspectionPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { documents, activeVehicle, vehicles, warnDays } = useApp();
+  const {
+    documents,
+    vehicles,
+    drivers,
+    activeVehicle,
+    activeVehicleId,
+    setActiveVehicleId,
+    activeDriver,
+    activeDriverId,
+    setActiveDriverId,
+    warnDays,
+  } = useApp();
   const { supported: wakeSupported, isLocked } = useWakeLock(true);
+
+  // Sincroniza el vehículo / conductor indicado en la URL con el contexto.
+  useEffect(() => {
+    const v = params.get('vehicle');
+    if (v && vehicles.some((x) => x.id === v)) setActiveVehicleId(v);
+    const d = params.get('driver');
+    if (d && drivers.some((x) => x.id === d)) setActiveDriverId(d);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicles, drivers]);
 
   const [tab, setTab] = useState(() => {
     const t = params.get('tab');
-    return INSPECTION_TABS.includes(t) ? t : INSPECTION_TABS[0]; // cédula por defecto
+    if (INSPECTION_TABS.includes(t)) return t;
+    return params.get('vehicle') ? 'padron' : INSPECTION_TABS[0];
   });
   const [zoom, setZoom] = useState(1);
   const [bright, setBright] = useState(false);
+  const [vehiclePicker, setVehiclePicker] = useState(false);
+  const [driverPicker, setDriverPicker] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   // Reinicia el zoom al cambiar de pestaña
   useEffect(() => setZoom(1), [tab]);
 
-  const plate = activeVehicle?.plate || (vehicles[0] && vehicles[0].plate) || '—';
-  const vehicleId = activeVehicle?.id || (vehicles[0] && vehicles[0].id) || null;
+  const plate = activeVehicle?.plate || '—';
+  const driverLabel = activeDriver?.name || 'Sin conductor';
 
-  // Documento para la pestaña activa
+  // Documento para la pestaña activa (según sea del conductor o del vehículo).
   const doc = useMemo(() => {
-    if (tab === 'licencia') {
-      return documents.find((d) => d.type === 'licencia') || null;
+    if (isDriverTab(tab)) {
+      return documents.find((d) => d.type === tab && d.driverId === activeDriverId) || null;
     }
-    return (
-      documents.find((d) => d.type === tab && d.vehicleId === vehicleId) ||
-      documents.find((d) => d.type === tab) ||
-      null
-    );
-  }, [documents, tab, vehicleId]);
+    return documents.find((d) => d.type === tab && d.vehicleId === activeVehicleId) || null;
+  }, [documents, tab, activeVehicleId, activeDriverId]);
 
   const meta = getDocType(tab);
   const status = doc && meta?.hasExpiry ? getExpiryStatus(doc.expiryDate, warnDays) : 'sin-fecha';
@@ -80,11 +151,9 @@ export default function InspectionPage() {
   const tabAlert = (t) => {
     const dt = getDocType(t);
     if (!dt?.hasExpiry) return null;
-    const d =
-      t === 'licencia'
-        ? documents.find((x) => x.type === 'licencia')
-        : documents.find((x) => x.type === t && x.vehicleId === vehicleId) ||
-          documents.find((x) => x.type === t);
+    const d = isDriverTab(t)
+      ? documents.find((x) => x.type === t && x.driverId === activeDriverId)
+      : documents.find((x) => x.type === t && x.vehicleId === activeVehicleId);
     if (!d) return null;
     const s = getExpiryStatus(d.expiryDate, warnDays);
     if (s === 'vencido') return 'bg-red-500';
@@ -127,14 +196,33 @@ export default function InspectionPage() {
         </div>
       </div>
 
-      {/* Patente */}
-      <div className="flex flex-col items-center gap-1 py-4">
-        <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
-          Patente
-        </span>
-        <span className="tabular rounded-lg bg-white/5 px-6 py-2 text-2xl font-extrabold tracking-widest ring-1 ring-white/10">
-          {plate}
-        </span>
+      {/* Selectores: Patente (cambiar vehículo) y Conductor */}
+      <div className="flex items-stretch gap-3 px-4 py-3">
+        <button
+          onClick={() => setVehiclePicker(true)}
+          className="flex flex-1 flex-col items-start gap-0.5 rounded-lg bg-white/5 px-4 py-2.5 text-left ring-1 ring-white/10 active:scale-[0.98]"
+        >
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            Patente · cambiar
+          </span>
+          <span className="tabular flex items-center gap-2 text-xl font-extrabold tracking-widest">
+            {plate}
+            <ChevronDown className="h-4 w-4 text-slate-400" />
+          </span>
+        </button>
+        <button
+          onClick={() => setDriverPicker(true)}
+          className="flex flex-1 flex-col items-start gap-0.5 rounded-lg bg-white/5 px-4 py-2.5 text-left ring-1 ring-white/10 active:scale-[0.98]"
+        >
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+            Conductor · cambiar
+          </span>
+          <span className="flex items-center gap-2 truncate text-base font-bold">
+            <User className="h-4 w-4 shrink-0 text-slate-400" />
+            <span className="truncate">{driverLabel}</span>
+            <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+          </span>
+        </button>
       </div>
 
       {/* Visor del documento */}
@@ -160,25 +248,36 @@ export default function InspectionPage() {
             </div>
           )}
 
-          {/* Controles de zoom (solo imágenes) */}
-          {hasImage && (
-            <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+          {/* Controles: pantalla completa + zoom */}
+          <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+            {sides.length > 0 && (
               <button
-                onClick={() => setZoom((z) => Math.min(4, z + 0.25))}
-                aria-label="Acercar"
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-white shadow-lg active:scale-95"
+                onClick={() => setFullscreen(true)}
+                aria-label="Ver a pantalla completa"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg active:scale-95"
               >
-                <Plus className="h-6 w-6" />
+                <Maximize2 className="h-6 w-6" />
               </button>
-              <button
-                onClick={() => setZoom((z) => Math.max(1, z - 0.25))}
-                aria-label="Alejar"
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-white shadow-lg active:scale-95"
-              >
-                <Minus className="h-6 w-6" />
-              </button>
-            </div>
-          )}
+            )}
+            {hasImage && (
+              <>
+                <button
+                  onClick={() => setZoom((z) => Math.min(4, z + 0.25))}
+                  aria-label="Acercar"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-white shadow-lg active:scale-95"
+                >
+                  <Plus className="h-6 w-6" />
+                </button>
+                <button
+                  onClick={() => setZoom((z) => Math.max(1, z - 0.25))}
+                  aria-label="Alejar"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-white shadow-lg active:scale-95"
+                >
+                  <Minus className="h-6 w-6" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -231,6 +330,57 @@ export default function InspectionPage() {
           );
         })}
       </nav>
+
+      {/* Selector de vehículo */}
+      <PickerSheet
+        open={vehiclePicker}
+        title="Cambiar vehículo"
+        items={vehicles}
+        activeId={activeVehicleId}
+        onSelect={setActiveVehicleId}
+        onClose={() => setVehiclePicker(false)}
+        renderItem={(v) => (
+          <span className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
+              {v.type === 'moto' ? <Bike className="h-5 w-5" /> : <Car className="h-5 w-5" />}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-bold">{v.name}</span>
+              <span className="tabular block text-sm text-white/60">{v.plate || 'Sin patente'}</span>
+            </span>
+          </span>
+        )}
+      />
+
+      {/* Selector de conductor */}
+      <PickerSheet
+        open={driverPicker}
+        title="Cambiar conductor"
+        items={drivers}
+        activeId={activeDriverId}
+        onSelect={setActiveDriverId}
+        onClose={() => setDriverPicker(false)}
+        renderItem={(d) => (
+          <span className="flex items-center gap-3">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
+              <User className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate font-bold">{d.name}</span>
+              <span className="tabular block text-sm text-white/60">{d.run || 'Sin RUN'}</span>
+            </span>
+          </span>
+        )}
+      />
+
+      {/* Visor a pantalla completa */}
+      {fullscreen && (
+        <FullscreenDoc
+          sides={sides}
+          title={meta?.title || ''}
+          onClose={() => setFullscreen(false)}
+        />
+      )}
     </div>
   );
 }

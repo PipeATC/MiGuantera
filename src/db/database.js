@@ -9,18 +9,23 @@ import { openDB } from 'idb';
  */
 
 const DB_NAME = 'miguantera-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export const STORE_VEHICLES = 'vehicles';
+export const STORE_DRIVERS = 'drivers';
 export const STORE_DOCUMENTS = 'documents';
 export const STORE_SETTINGS = 'settings';
+
+/** Tipos de documento que pertenecen a un conductor (no a un vehículo). */
+const DRIVER_DOC_KEYS = new Set(['cedula', 'licencia']);
 
 let dbPromise = null;
 
 export function getDB() {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
+      async upgrade(db, oldVersion, _newVersion, tx) {
+        // --- v1: estructura base ---
         if (!db.objectStoreNames.contains(STORE_VEHICLES)) {
           const vehicles = db.createObjectStore(STORE_VEHICLES, { keyPath: 'id' });
           vehicles.createIndex('by-name', 'name');
@@ -33,6 +38,46 @@ export function getDB() {
         }
         if (!db.objectStoreNames.contains(STORE_SETTINGS)) {
           db.createObjectStore(STORE_SETTINGS, { keyPath: 'key' });
+        }
+
+        // --- v2: conductores (múltiples titulares) ---
+        if (!db.objectStoreNames.contains(STORE_DRIVERS)) {
+          const drivers = db.createObjectStore(STORE_DRIVERS, { keyPath: 'id' });
+          drivers.createIndex('by-name', 'name');
+        }
+        const docStore = tx.objectStore(STORE_DOCUMENTS);
+        if (!docStore.indexNames.contains('by-driver')) {
+          docStore.createIndex('by-driver', 'driverId');
+        }
+
+        // Migración de instalaciones v1: los documentos personales (cédula /
+        // licencia) pasan a pertenecer a un conductor. Se crea un conductor a
+        // partir del nombre del titular guardado en ajustes.
+        if (oldVersion >= 1 && oldVersion < 2) {
+          const settingsStore = tx.objectStore(STORE_SETTINGS);
+          const driverNameRow = await settingsStore.get('driverName');
+          const legacyName = (driverNameRow && driverNameRow.value) || '';
+          const allDocs = await docStore.getAll();
+          const driverDocs = allDocs.filter((d) => DRIVER_DOC_KEYS.has(d.type));
+
+          if (legacyName.trim() || driverDocs.length) {
+            const now = Date.now();
+            const driverId = makeId('drv');
+            await tx.objectStore(STORE_DRIVERS).put({
+              id: driverId,
+              name: legacyName.trim() || 'Conductor',
+              run: '',
+              phone: '',
+              notes: '',
+              createdAt: now,
+              updatedAt: now,
+            });
+            for (const doc of driverDocs) {
+              doc.driverId = driverId;
+              doc.vehicleId = null;
+              await docStore.put(doc);
+            }
+          }
         }
       },
     });
@@ -100,6 +145,51 @@ export async function deleteVehicle(id) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Conductores                                                         */
+/* ------------------------------------------------------------------ */
+
+export async function getAllDrivers() {
+  const db = await getDB();
+  const list = await db.getAll(STORE_DRIVERS);
+  return list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+export async function getDriver(id) {
+  const db = await getDB();
+  return db.get(STORE_DRIVERS, id);
+}
+
+export async function saveDriver(driver) {
+  const db = await getDB();
+  const now = Date.now();
+  const record = {
+    id: driver.id || makeId('drv'),
+    name: (driver.name || '').trim(),
+    run: (driver.run || '').trim().toUpperCase(),
+    phone: (driver.phone || '').trim(),
+    notes: (driver.notes || '').trim(),
+    createdAt: driver.createdAt || now,
+    updatedAt: now,
+  };
+  await db.put(STORE_DRIVERS, record);
+  return record;
+}
+
+export async function deleteDriver(id) {
+  const db = await getDB();
+  const tx = db.transaction([STORE_DRIVERS, STORE_DOCUMENTS], 'readwrite');
+  // Eliminar en cascada los documentos personales del conductor
+  const docIndex = tx.objectStore(STORE_DOCUMENTS).index('by-driver');
+  let cursor = await docIndex.openCursor(IDBKeyRange.only(id));
+  while (cursor) {
+    await cursor.delete();
+    cursor = await cursor.continue();
+  }
+  await tx.objectStore(STORE_DRIVERS).delete(id);
+  await tx.done;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Documentos                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -113,6 +203,11 @@ export async function getDocumentsByVehicle(vehicleId) {
   return db.getAllFromIndex(STORE_DOCUMENTS, 'by-vehicle', vehicleId);
 }
 
+export async function getDocumentsByDriver(driverId) {
+  const db = await getDB();
+  return db.getAllFromIndex(STORE_DOCUMENTS, 'by-driver', driverId);
+}
+
 export async function getDocument(id) {
   const db = await getDB();
   return db.get(STORE_DOCUMENTS, id);
@@ -124,6 +219,7 @@ export async function saveDocument(doc) {
   const record = {
     id: doc.id || makeId('doc'),
     vehicleId: doc.vehicleId || null,
+    driverId: doc.driverId || null, // documentos personales del conductor
     type: doc.type, // 'cedula' | 'licencia' | 'padron' | 'permiso' | 'revision' | 'soap'
     // Anverso (cara frontal). Se mantienen los nombres históricos file* por
     // compatibilidad con respaldos y registros existentes.
@@ -175,10 +271,11 @@ export async function setSetting(key, value) {
 export async function clearAllData() {
   const db = await getDB();
   const tx = db.transaction(
-    [STORE_VEHICLES, STORE_DOCUMENTS, STORE_SETTINGS],
+    [STORE_VEHICLES, STORE_DRIVERS, STORE_DOCUMENTS, STORE_SETTINGS],
     'readwrite'
   );
   await tx.objectStore(STORE_VEHICLES).clear();
+  await tx.objectStore(STORE_DRIVERS).clear();
   await tx.objectStore(STORE_DOCUMENTS).clear();
   await tx.objectStore(STORE_SETTINGS).clear();
   await tx.done;

@@ -86,16 +86,14 @@ export const VEHICLE_DOC_TYPES = DOC_TYPE_LIST.filter((d) => d.scope === 'vehicl
 /** Documentos personales del titular (no asociados a un vehículo). */
 export const DRIVER_DOC_TYPES = DOC_TYPE_LIST.filter((d) => d.scope === 'driver');
 
+/** Pestañas de documentos del conductor (Modo Inspección). */
+export const DRIVER_INSPECTION_TABS = ['cedula', 'licencia'];
+
+/** Pestañas de documentos del vehículo (Modo Inspección). */
+export const VEHICLE_INSPECTION_TABS = ['padron', 'permiso', 'revision', 'gases', 'soap'];
+
 /** Orden de las pestañas en Modo Control Policial (cédula primero). */
-export const INSPECTION_TABS = [
-  'cedula',
-  'licencia',
-  'padron',
-  'permiso',
-  'revision',
-  'gases',
-  'soap',
-];
+export const INSPECTION_TABS = [...DRIVER_INSPECTION_TABS, ...VEHICLE_INSPECTION_TABS];
 
 export function getDocType(key) {
   return DOC_TYPES[key] || null;

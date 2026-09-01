@@ -1,157 +1,125 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Car, ScanLine } from 'lucide-react';
+import { Car, Bike, User, Users, ChevronRight, ScanLine, Settings2 } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
 import InstallBanner from '../components/layout/InstallBanner.jsx';
-import VehicleSelector from '../components/vehicles/VehicleSelector.jsx';
-import VehicleForm from '../components/vehicles/VehicleForm.jsx';
-import DocumentCard from '../components/documents/DocumentCard.jsx';
-import DocumentForm from '../components/documents/DocumentForm.jsx';
-import LicenseCard from '../components/documents/LicenseCard.jsx';
-import ReminderBanner from '../components/documents/ReminderBanner.jsx';
-import Modal from '../components/ui/Modal.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
-import { VEHICLE_DOC_TYPES, getDocType } from '../utils/docTypes.js';
 
+/**
+ * Inicio: pantalla de acceso rápido. No muestra datos de documentos,
+ * solo el listado de conductores y vehículos. Al tocar un vehículo se
+ * entra directamente al Modo Inspección.
+ */
 export default function HomePage() {
-  const {
-    vehicles,
-    documents,
-    documentsByVehicle,
-    activeVehicle,
-    activeVehicleId,
-    driverName,
-    warnDays,
-  } = useApp();
+  const { drivers, vehicles } = useApp();
   const navigate = useNavigate();
-
-  const [vehicleModal, setVehicleModal] = useState(false);
-  const [docModal, setDocModal] = useState(null); // { type, doc }
-
-  const licenseDoc = documents.find((d) => d.type === 'licencia') || null;
-  const cedulaDoc = documents.find((d) => d.type === 'cedula') || null;
-  const vehicleDocs = documentsByVehicle.get(activeVehicleId) || [];
-  const docByType = (t) => vehicleDocs.find((d) => d.type === t) || null;
-
-  const openDoc = (type, doc) => setDocModal({ type, doc });
 
   return (
     <div className="mx-auto max-w-lg space-y-6 px-5 pb-28 pt-4">
       <InstallBanner />
-      <ReminderBanner onClick={() => navigate('/gestion')} />
 
-      {/* Licencia de conducir */}
-      <LicenseCard
-        doc={licenseDoc}
-        driverName={driverName}
-        warnDays={warnDays}
-        onExhibit={() => navigate('/inspeccion?tab=licencia')}
-        onEdit={() => openDoc('licencia', licenseDoc)}
-      />
+      <header className="space-y-1">
+        <h1 className="text-headline-md text-primary-900">Mi Guantera</h1>
+        <p className="text-sm text-primary-500">
+          Elige un vehículo para iniciar la inspección.
+        </p>
+      </header>
 
-      {/* Documentos personales del titular (Cédula de Identidad) */}
+      {/* Conductores */}
       <section className="space-y-3">
-        <h2 className="text-headline-sm text-primary-900">Documento de identidad</h2>
-        <div className="grid grid-cols-2 gap-3">
-          <DocumentCard
-            type={getDocType('cedula')}
-            doc={cedulaDoc}
-            warnDays={warnDays}
-            onClick={() => openDoc('cedula', cedulaDoc)}
-          />
-          <button
-            onClick={() => navigate('/inspeccion?tab=cedula')}
-            className="flex min-h-[168px] flex-col items-center justify-center gap-2 rounded-xl bg-primary-900 p-4 text-white shadow-card transition active:scale-[0.98]"
-          >
-            <ScanLine className="h-7 w-7" strokeWidth={2} />
-            <span className="text-label-caps uppercase text-white/70">Exhibir</span>
-            <span className="text-sm font-bold">Cédula</span>
-          </button>
+        <div className="flex items-center justify-between">
+          <h2 className="text-headline-sm text-primary-900">Conductores</h2>
+          <span className="text-sm font-semibold text-primary-400">{drivers.length}</span>
         </div>
-      </section>
 
-      {/* Botón directo Modo Inspección */}
-      <button
-        onClick={() => navigate('/inspeccion')}
-        className="flex min-h-[56px] w-full items-center justify-center gap-2.5 rounded-xl bg-brand-500 font-bold text-white shadow-fab transition active:scale-[0.98]"
-      >
-        <ShieldCheck className="h-6 w-6" strokeWidth={2.25} /> Modo Inspección
-      </button>
-
-      {/* Vehículos */}
-      <section className="space-y-3">
-        <h2 className="text-headline-sm text-primary-900">Vehículos</h2>
-        {vehicles.length === 0 ? (
+        {drivers.length === 0 ? (
           <EmptyState
-            icon={Car}
-            title="Aún no tienes vehículos"
-            description="Agrega tu primer vehículo para empezar a guardar sus documentos."
+            icon={Users}
+            title="Aún no hay conductores"
+            description="Agrega conductores desde Gestión para exhibir su cédula y licencia."
             action={
-              <button onClick={() => setVehicleModal(true)} className="btn-primary mt-1 !w-auto px-6">
-                Agregar vehículo
+              <button onClick={() => navigate('/gestion?tab=conductores')} className="btn-primary mt-1 !w-auto px-6">
+                Ir a Gestión
               </button>
             }
           />
         ) : (
-          <VehicleSelector onAdd={() => setVehicleModal(true)} />
+          <div className="space-y-2.5">
+            {drivers.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => navigate(`/inspeccion?driver=${d.id}`)}
+                className="flex w-full items-center gap-3 rounded-xl bg-white p-3.5 text-left shadow-card ring-1 ring-primary-100 transition active:scale-[0.99]"
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700">
+                  <User className="h-6 w-6" strokeWidth={2} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-base font-bold text-primary-900">{d.name}</span>
+                  <span className="tabular block truncate text-sm font-semibold text-primary-500">
+                    {d.run || 'Sin RUN'}
+                  </span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0 text-primary-300" />
+              </button>
+            ))}
+          </div>
         )}
       </section>
 
-      {/* Documentos del vehículo activo */}
-      {activeVehicle && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-headline-sm text-primary-900">Documentos</h2>
-            <button
-              onClick={() => setVehicleModal('edit')}
-              className="text-sm font-semibold text-primary-500"
-            >
-              Editar vehículo
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            {VEHICLE_DOC_TYPES.map((type) => (
-              <DocumentCard
-                key={type.key}
-                type={type}
-                doc={docByType(type.key)}
-                warnDays={warnDays}
-                onClick={() => openDoc(type.key, docByType(type.key))}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Vehículos */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-headline-sm text-primary-900">Vehículos</h2>
+          <span className="text-sm font-semibold text-primary-400">{vehicles.length}</span>
+        </div>
 
-      {/* Modal documento */}
-      <Modal
-        open={!!docModal}
-        onClose={() => setDocModal(null)}
-        subtitle={docModal?.doc ? 'Actualizar documento' : 'Nuevo documento'}
-        title={docModal ? getDocType(docModal.type)?.title : ''}
-      >
-        {docModal && (
-          <DocumentForm
-            type={docModal.type}
-            doc={docModal.doc}
-            vehicleId={activeVehicleId}
-            onDone={() => setDocModal(null)}
+        {vehicles.length === 0 ? (
+          <EmptyState
+            icon={Car}
+            title="Aún no tienes vehículos"
+            description="Agrega tu primer vehículo desde Gestión para iniciar inspecciones."
+            action={
+              <button onClick={() => navigate('/gestion?tab=vehiculos')} className="btn-primary mt-1 !w-auto px-6">
+                Ir a Gestión
+              </button>
+            }
           />
+        ) : (
+          <div className="space-y-2.5">
+            {vehicles.map((v) => {
+              const Icon = v.type === 'moto' ? Bike : Car;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => navigate(`/inspeccion?vehicle=${v.id}`)}
+                  className="flex w-full items-center gap-3 rounded-xl bg-white p-3.5 text-left shadow-card ring-1 ring-primary-100 transition active:scale-[0.99]"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-900 text-white">
+                    <Icon className="h-6 w-6" strokeWidth={2} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-base font-bold text-primary-900">{v.name}</span>
+                    <span className="tabular block truncate text-sm font-semibold text-primary-500">
+                      {v.plate || 'Sin patente'}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wide text-brand-600">
+                    <ScanLine className="h-4 w-4" /> Inspección
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         )}
-      </Modal>
+      </section>
 
-      {/* Modal vehículo */}
-      <Modal
-        open={!!vehicleModal}
-        onClose={() => setVehicleModal(false)}
-        subtitle={vehicleModal === 'edit' ? 'Editar' : 'Nuevo'}
-        title={vehicleModal === 'edit' ? 'Editar vehículo' : 'Agregar vehículo'}
+      {/* Acceso a Gestión */}
+      <button
+        onClick={() => navigate('/gestion')}
+        className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-primary-100 font-bold text-primary-800 transition active:scale-[0.98]"
       >
-        <VehicleForm
-          vehicle={vehicleModal === 'edit' ? activeVehicle : null}
-          onDone={() => setVehicleModal(false)}
-        />
-      </Modal>
+        <Settings2 className="h-5 w-5" /> Gestionar vehículos y documentos
+      </button>
     </div>
   );
 }

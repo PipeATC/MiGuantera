@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  User,
   BellRing,
   Download,
   Upload,
@@ -9,7 +8,6 @@ import {
   ShieldCheck,
   Fingerprint,
   Info,
-  Check,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
 import { exportBackup, importBackup, readBackupFile } from '../utils/backup.js';
@@ -38,11 +36,10 @@ function Section({ icon: Icon, title, children }) {
 
 export default function SettingsPage() {
   const {
-    driverName,
-    updateDriverName,
     warnDays,
     updateWarnDays,
     vehicles,
+    drivers,
     documents,
     refresh,
     securityLock,
@@ -50,8 +47,6 @@ export default function SettingsPage() {
     disableSecurityLock,
   } = useApp();
 
-  const [name, setName] = useState(driverName);
-  const [savedName, setSavedName] = useState(false);
   const [storage, setStorage] = useState({ usage: 0, quota: 0 });
   const [notifPerm, setNotifPerm] = useState(notificationPermission());
   const [lockSupported, setLockSupported] = useState(null); // null = comprobando
@@ -59,7 +54,6 @@ export default function SettingsPage() {
   const [toast, setToast] = useState('');
   const importRef = useRef(null);
 
-  useEffect(() => setName(driverName), [driverName]);
   useEffect(() => {
     getStorageEstimate().then(setStorage);
   }, [documents]);
@@ -72,16 +66,12 @@ export default function SettingsPage() {
     setTimeout(() => setToast(''), 2600);
   };
 
-  const handleSaveName = async () => {
-    await updateDriverName(name.trim());
-    setSavedName(true);
-    setTimeout(() => setSavedName(false), 1600);
-  };
-
   const handleExport = async () => {
     try {
       const res = await exportBackup();
-      flash(`Respaldo generado: ${res.vehicles} vehículos, ${res.documents} documentos.`);
+      flash(
+        `Respaldo generado: ${res.vehicles} vehículos, ${res.drivers} conductores, ${res.documents} documentos.`
+      );
     } catch {
       flash('No se pudo generar el respaldo.');
     }
@@ -98,7 +88,9 @@ export default function SettingsPage() {
       );
       const res = await importBackup(data, { replace });
       await refresh();
-      flash(`Importados ${res.vehicles} vehículos y ${res.documents} documentos.`);
+      flash(
+        `Importados ${res.vehicles} vehículos, ${res.drivers} conductores y ${res.documents} documentos.`
+      );
     } catch (err) {
       flash(err.message || 'Error al importar el respaldo.');
     }
@@ -148,23 +140,6 @@ export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-lg space-y-4 px-5 pb-28 pt-4">
       <h1 className="text-headline-md text-primary-900">Ajustes</h1>
-
-      {/* Conductor */}
-      <Section icon={User} title="Conductor">
-        <label className="label-field" htmlFor="driver-name">Nombre del titular</label>
-        <div className="flex gap-2">
-          <input
-            id="driver-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ej: Ana María Rodríguez"
-            className="input-well flex-1"
-          />
-          <button onClick={handleSaveName} className="btn-primary !w-auto px-5">
-            {savedName ? <Check className="h-5 w-5" /> : 'Guardar'}
-          </button>
-        </div>
-      </Section>
 
       {/* Recordatorios */}
       <Section icon={BellRing} title="Recordatorios de vencimiento">
@@ -276,7 +251,7 @@ export default function SettingsPage() {
       <Section icon={Database} title="Almacenamiento local">
         <div className="flex items-center justify-between text-sm">
           <span className="text-primary-500">
-            {vehicles.length} vehículos · {documents.length} documentos
+            {vehicles.length} vehículos · {drivers.length} conductores · {documents.length} documentos
           </span>
           <span className="tabular font-semibold text-primary-700">
             {formatBytes(storage.usage)}
