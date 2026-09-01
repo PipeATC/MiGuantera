@@ -25,6 +25,7 @@ import {
   fireReminderNotifications,
 } from '../utils/reminders.js';
 import { registerDeviceCredential } from '../utils/deviceAuth.js';
+import { createPinConfig, verifyPinConfig } from '../utils/pinAuth.js';
 
 const AppContext = createContext(null);
 
@@ -37,9 +38,12 @@ export function AppProvider({ children }) {
   const [warnDays, setWarnDaysState] = useState(DEFAULT_WARN_DAYS);
   const [activeVehicleId, setActiveVehicleId] = useState(null);
   const [activeDriverId, setActiveDriverId] = useState(null);
-  // Bloqueo de seguridad (biometría / PIN del dispositivo)
+  // Autenticación: PIN local obligatorio + biometría opcional (WebAuthn).
+  const [pinConfig, setPinConfig] = useState(null); // { salt, hash, createdAt } | null
+  const [authed, setAuthed] = useState(false); // ¿desbloqueada esta sesión?
   const [securityLock, setSecurityLockState] = useState(null); // { enabled, credentialId }
-  const [locked, setLocked] = useState(false);
+  // Sugerencias descartables de la Home (biometría, notificaciones, respaldo).
+  const [dismissedTips, setDismissedTips] = useState({});
 
   const refresh = useCallback(async () => {
     const [v, dr, d] = await Promise.all([
@@ -56,13 +60,15 @@ export function AppProvider({ children }) {
   // Carga inicial
   useEffect(() => {
     (async () => {
-      const [v, dr, d, name, wd, sl] = await Promise.all([
+      const [v, dr, d, name, wd, sl, pin, tips] = await Promise.all([
         getAllVehicles(),
         getAllDrivers(),
         getAllDocuments(),
         getSetting('driverName', ''),
         getSetting('warnDays', DEFAULT_WARN_DAYS),
         getSetting('securityLock', null),
+        getSetting('pinConfig', null),
+        getSetting('dismissedTips', {}),
       ]);
       setVehicles(v);
       setDrivers(dr);
@@ -70,22 +76,20 @@ export function AppProvider({ children }) {
       setDriverName(name || '');
       setWarnDaysState(Number(wd) || DEFAULT_WARN_DAYS);
       setSecurityLockState(sl);
-      setLocked(!!(sl && sl.enabled)); // arrancar bloqueado si está activo
+      setPinConfig(pin);
+      setDismissedTips(tips || {});
+      // Siempre arranca sin autenticar: exige crear/ingresar el PIN.
+      setAuthed(false);
       setActiveVehicleId((prev) => prev || (v[0] ? v[0].id : null));
       setActiveDriverId((prev) => prev || (dr[0] ? dr[0].id : null));
       setLoading(false);
     })();
   }, []);
 
-  // Re-bloquear al volver a segundo plano (PWA): exige verificar al reabrir.
+  // Re-bloquear al volver a segundo plano (PWA): exige reautenticar al reabrir.
   useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') {
-        setSecurityLockState((sl) => {
-          if (sl && sl.enabled) setLocked(true);
-          return sl;
-        });
-      }
+      if (document.visibilityState === 'hidden') setAuthed(false);
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
@@ -146,25 +150,58 @@ export function AppProvider({ children }) {
     await setSetting('warnDays', val);
   }, []);
 
-  // --- Bloqueo de seguridad ---
-  const unlock = useCallback(() => setLocked(false), []);
+  // --- Autenticación con PIN ---
+  const createPin = useCallback(async (pin) => {
+    const cfg = await createPinConfig(pin);
+    await setSetting('pinConfig', cfg);
+    setPinConfig(cfg);
+    setAuthed(true); // recién creado: queda desbloqueado
+    return cfg;
+  }, []);
 
+  const verifyPin = useCallback(async (pin) => {
+    const ok = await verifyPinConfig(pin, pinConfig);
+    if (ok) setAuthed(true);
+    return ok;
+  }, [pinConfig]);
+
+  const changePin = useCallback(async (currentPin, newPin) => {
+    const ok = await verifyPinConfig(currentPin, pinConfig);
+    if (!ok) return false;
+    const cfg = await createPinConfig(newPin);
+    await setSetting('pinConfig', cfg);
+    setPinConfig(cfg);
+    return true;
+  }, [pinConfig]);
+
+  // Desbloqueo por biometría (tras verificación WebAuthn exitosa).
+  const unlock = useCallback(() => setAuthed(true), []);
+  const lock = useCallback(() => setAuthed(false), []);
+
+  // --- Biometría opcional (WebAuthn) ---
   const enableSecurityLock = useCallback(async () => {
-    // Registra la credencial de plataforma (dispara biometría / PIN).
+    // Registra la credencial de plataforma (dispara biometría / PIN del sistema).
     const { credentialId } = await registerDeviceCredential({
       userName: driverName || 'MiGuantera',
     });
     const value = { enabled: true, credentialId, method: 'webauthn', createdAt: Date.now() };
     await setSetting('securityLock', value);
     setSecurityLockState(value);
-    setLocked(false); // recién configurado: queda desbloqueado
     return value;
   }, [driverName]);
 
   const disableSecurityLock = useCallback(async () => {
     await setSetting('securityLock', null);
     setSecurityLockState(null);
-    setLocked(false);
+  }, []);
+
+  // --- Sugerencias descartables ---
+  const dismissTip = useCallback(async (key) => {
+    setDismissedTips((prev) => {
+      const next = { ...prev, [key]: true };
+      setSetting('dismissedTips', next);
+      return next;
+    });
   }, []);
 
   // Índices derivados
@@ -219,11 +256,21 @@ export function AppProvider({ children }) {
     driverName,
     warnDays,
     pendingReminders,
-    securityLock,
-    locked,
+    // Autenticación
+    pinSet: !!pinConfig,
+    authed,
+    createPin,
+    verifyPin,
+    changePin,
     unlock,
+    lock,
+    // Biometría opcional
+    securityLock,
     enableSecurityLock,
     disableSecurityLock,
+    // Sugerencias
+    dismissedTips,
+    dismissTip,
     refresh,
     saveVehicle,
     removeVehicle,

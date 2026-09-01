@@ -86,11 +86,17 @@ export default {
           '70%': { boxShadow: '0 0 0 10px rgba(239, 68, 68, 0)' },
           '100%': { boxShadow: '0 0 0 0 rgba(239, 68, 68, 0)' },
         },
+        shake: {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '20%, 60%': { transform: 'translateX(-8px)' },
+          '40%, 80%': { transform: 'translateX(8px)' },
+        },
       },
       animation: {
         'slide-up': 'slide-up 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
         'fade-in': 'fade-in 0.2s ease-out',
         'pulse-ring': 'pulseRing 2s infinite',
+        shake: 'shake 0.4s ease-in-out',
       },
     },
   },

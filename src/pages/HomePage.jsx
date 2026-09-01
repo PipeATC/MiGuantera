@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Car, Bike, User, Users, ChevronRight, ScanLine, Settings2 } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
 import InstallBanner from '../components/layout/InstallBanner.jsx';
+import HomeSuggestions from '../components/layout/HomeSuggestions.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 
 /**
@@ -16,6 +17,7 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-lg space-y-6 px-5 pb-28 pt-4">
       <InstallBanner />
+      <HomeSuggestions />
 
       <header className="space-y-1">
         <h1 className="text-headline-md text-primary-900">Mi Guantera</h1>
