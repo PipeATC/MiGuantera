@@ -364,18 +364,27 @@ export function AppProvider({ children }) {
   // --- Biometría opcional (WebAuthn) ---
   const enableSecurityLock = useCallback(async () => {
     pauseAutoLock(); // el registro biométrico manda la app a segundo plano
-    const prfSaltBytes = crypto.getRandomValues(new Uint8Array(32));
-    const reg = await registerDeviceCredential({
-      userName: driverName || 'MiGuantera',
-      prfSalt: prfSaltBytes,
-    });
+    const userName = driverName || 'MiGuantera';
 
-    // Si el dispositivo soporta PRF, envolvemos la clave de cifrado con el
-    // secreto biométrico para poder desbloquear al iniciar la app en frío.
-    let secret = reg.prfSecret;
-    if (!secret && reg.prfEnabled) {
+    // Intento con PRF; si el dispositivo rechaza la extensión, se registra la
+    // biometría normal (sin PRF) para que activar nunca falle por esto.
+    let reg;
+    try {
+      reg = await registerDeviceCredential({ userName, enablePrf: true });
+    } catch (err) {
+      if (err?.name === 'NotAllowedError') throw err; // cancelado por el usuario
+      reg = await registerDeviceCredential({ userName }); // respaldo sin PRF
+    }
+
+    // Si hay PRF, se envuelve la clave de cifrado con el secreto biométrico
+    // para poder desbloquear al iniciar la app en frío.
+    let secret = null;
+    let bioSalt = null;
+    if (reg.prfEnabled && dekRef.current) {
       try {
+        const prfSaltBytes = crypto.getRandomValues(new Uint8Array(32));
         secret = await getPrfSecret(reg.credentialId, prfSaltBytes);
+        if (secret) bioSalt = bufToB64(prfSaltBytes);
       } catch {
         secret = null;
       }
@@ -383,11 +392,9 @@ export function AppProvider({ children }) {
 
     let prf = false;
     let bioWrappedDEK = null;
-    let bioSalt = null;
-    if (secret && dekRef.current) {
+    if (secret && bioSalt && dekRef.current) {
       const bioKey = await deriveAesKeyFromSecret(secret);
       bioWrappedDEK = await wrapDEK(dekRef.current, bioKey);
-      bioSalt = bufToB64(prfSaltBytes);
       prf = true;
     }
 
