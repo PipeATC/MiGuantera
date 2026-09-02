@@ -53,6 +53,7 @@ export default function SettingsPage() {
     storagePersisted,
     storagePersistenceSupported,
     protectStorage,
+    pauseAutoLock,
   } = useApp();
 
   const [storage, setStorage] = useState({ usage: 0, quota: 0 });
@@ -387,7 +388,13 @@ export default function SettingsPage() {
           <button onClick={() => setExportModal(true)} className="btn-secondary">
             <Download className="h-5 w-5" /> Exportar
           </button>
-          <button onClick={() => importRef.current?.click()} className="btn-secondary">
+          <button
+            onClick={() => {
+              pauseAutoLock(); // el selector de archivos manda la app a segundo plano
+              importRef.current?.click();
+            }}
+            className="btn-secondary"
+          >
             <Upload className="h-5 w-5" /> Importar
           </button>
         </div>
