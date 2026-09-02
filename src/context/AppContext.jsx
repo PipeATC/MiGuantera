@@ -98,6 +98,7 @@ export function AppProvider({ children }) {
   // Autenticación: PIN local obligatorio + biometría opcional (WebAuthn).
   const [pinConfig, setPinConfig] = useState(null);
   const [authed, setAuthed] = useState(false);
+  const [hasKey, setHasKey] = useState(false); // ¿la clave de cifrado (DEK) está en memoria?
   const [securityLock, setSecurityLockState] = useState(null);
   const [dismissedTips, setDismissedTips] = useState({});
 
@@ -253,6 +254,7 @@ export function AppProvider({ children }) {
     await setSetting('pinConfig', config);
     setPinConfig(config);
     dekRef.current = dek;
+    setHasKey(true);
     // Cifra en reposo cualquier documento que existiera en claro.
     await migratePlaintextDocs(dek);
     setAuthed(true);
@@ -265,6 +267,7 @@ export function AppProvider({ children }) {
       const dek = await unlockWithPin(pin, pinConfig);
       if (!dek) return false;
       dekRef.current = dek;
+      setHasKey(true);
       setAuthed(true);
       await refresh();
       return true;
@@ -275,6 +278,7 @@ export function AppProvider({ children }) {
       if (hash !== pinConfig.hash) return false;
       const dek = await generateDEK();
       dekRef.current = dek;
+      setHasKey(true);
       const config = await rewrapPinConfig(pin, dek);
       await setSetting('pinConfig', config);
       setPinConfig(config);
@@ -299,10 +303,15 @@ export function AppProvider({ children }) {
     await setSetting('pinConfig', config);
     setPinConfig(config);
     dekRef.current = dek;
+    setHasKey(true);
     return true;
   }, [pinConfig]);
 
-  const unlock = useCallback(() => setAuthed(true), []);
+  // Biometría: solo re-desbloquea dentro de la sesión (cuando la clave sigue en
+  // memoria); en un arranque en frío la clave solo se obtiene con el PIN.
+  const unlock = useCallback(() => {
+    if (dekRef.current) setAuthed(true);
+  }, []);
   const lock = useCallback(() => setAuthed(false), []);
 
   // --- Biometría opcional (WebAuthn) ---
@@ -462,6 +471,7 @@ export function AppProvider({ children }) {
     // Autenticación
     pinSet: !!pinConfig,
     authed,
+    hasKey,
     createPin,
     verifyPin,
     changePin,

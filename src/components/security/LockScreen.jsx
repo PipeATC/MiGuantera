@@ -28,7 +28,7 @@ function PinDots({ length, error }) {
  * - Si ya existe, pide ingresarlo. La biometría es un atajo opcional.
  */
 export default function LockScreen() {
-  const { pinSet, createPin, verifyPin, unlock, securityLock } = useApp();
+  const { pinSet, createPin, verifyPin, unlock, securityLock, hasKey } = useApp();
   const [stage, setStage] = useState(pinSet ? 'unlock' : 'create'); // create | confirm | unlock
   const [entry, setEntry] = useState('');
   const [firstPin, setFirstPin] = useState('');
@@ -36,7 +36,9 @@ export default function LockScreen() {
   const [busy, setBusy] = useState(false);
   const bioTried = useRef(false);
 
-  const biometricEnabled = !!securityLock?.enabled;
+  // La biometría solo sirve dentro de la sesión (con la clave en memoria); en un
+  // arranque en frío se exige el PIN, que es lo único que obtiene la clave.
+  const biometricEnabled = !!securityLock?.enabled && hasKey;
 
   const process = useCallback(
     async (pin) => {
