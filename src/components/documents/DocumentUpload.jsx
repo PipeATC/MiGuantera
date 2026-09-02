@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { FileUp, Loader2 } from 'lucide-react';
 import { compressImage } from '../../utils/imageCompression.js';
 import { formatBytes, isImage } from '../../utils/fileUtils.js';
+import { useApp } from '../../context/AppContext.jsx';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
 
@@ -13,9 +14,17 @@ const ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
  */
 export default function DocumentUpload({ onFile, currentName, compact = false }) {
   const inputRef = useRef(null);
+  const { pauseAutoLock } = useApp();
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+
+  // Abrir el selector de archivos manda la app a segundo plano; evita que el
+  // re-bloqueo por PIN se dispare y pierda el documento en curso.
+  const openPicker = () => {
+    pauseAutoLock();
+    inputRef.current?.click();
+  };
 
   const handleFiles = async (files) => {
     setError('');
@@ -51,7 +60,7 @@ export default function DocumentUpload({ onFile, currentName, compact = false })
     <div>
       <button
         type="button"
-        onClick={() => inputRef.current?.click()}
+        onClick={openPicker}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);

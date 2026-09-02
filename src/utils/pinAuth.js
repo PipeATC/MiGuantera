@@ -1,45 +1,63 @@
 /**
  * PIN local de 4 dígitos — autenticación inicial de MiGuantera.
  *
- * El PIN no se guarda en texto plano: se almacena un hash SHA-256 con sal
- * aleatoria. Al ser 100% local (sin servidor), esto es una compuerta de acceso
- * en el dispositivo, no autenticación remota. La biometría (WebAuthn) es una
- * mejora opcional que se ofrece por separado.
+ * El PIN no se guarda: se usa para derivar una KEK (PBKDF2) que envuelve la DEK
+ * (clave que cifra los archivos). Verificar el PIN = lograr desenvolver la DEK.
+ * Así no existe un hash del PIN que atacar y la verificación queda ligada al
+ * cifrado real de los datos.
  */
 
-function toHex(buffer) {
-  return [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+import {
+  deriveKEK,
+  generateDEK,
+  wrapDEK,
+  unwrapDEK,
+  randomSaltB64,
+} from './crypto.js';
 
-/** Sal aleatoria en hexadecimal. */
-export function makeSalt(len = 16) {
-  const arr = new Uint8Array(len);
-  crypto.getRandomValues(arr);
-  return toHex(arr.buffer);
-}
-
-/** Hash SHA-256 de `sal:pin`. */
-export async function hashPin(pin, salt) {
-  const data = new TextEncoder().encode(`${salt}:${pin}`);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return toHex(digest);
-}
-
-/** Construye el registro persistible del PIN. */
-export async function createPinConfig(pin) {
-  const salt = makeSalt();
-  const hash = await hashPin(pin, salt);
-  return { salt, hash, createdAt: Date.now() };
-}
-
-/** Verifica un PIN contra el registro almacenado. */
-export async function verifyPinConfig(pin, config) {
-  if (!config || !config.salt || !config.hash) return false;
-  const hash = await hashPin(pin, config.salt);
-  return hash === config.hash;
-}
+const PIN_CONFIG_VERSION = 2;
 
 /** ¿El PIN tiene el formato válido (exactamente 4 dígitos)? */
 export function isValidPin(pin) {
   return typeof pin === 'string' && /^\d{4}$/.test(pin);
+}
+
+/**
+ * Crea la configuración del PIN: genera una DEK nueva y la envuelve con la KEK
+ * derivada del PIN. Devuelve { config, dek } — `config` es persistible.
+ */
+export async function createPinConfig(pin) {
+  const salt = randomSaltB64();
+  const kek = await deriveKEK(pin, salt);
+  const dek = await generateDEK();
+  const wrappedDEK = await wrapDEK(dek, kek);
+  const config = { v: PIN_CONFIG_VERSION, salt, wrappedDEK, createdAt: Date.now() };
+  return { config, dek };
+}
+
+/**
+ * Intenta desbloquear con el PIN. Devuelve la DEK si es correcto, o null si no.
+ * Solo aplica a configuraciones nuevas (con DEK envuelta).
+ */
+export async function unlockWithPin(pin, config) {
+  if (!config || !config.wrappedDEK || !config.salt) return null;
+  try {
+    const kek = await deriveKEK(pin, config.salt);
+    return await unwrapDEK(config.wrappedDEK, kek);
+  } catch {
+    return null; // PIN incorrecto (falla la autenticación AES-GCM)
+  }
+}
+
+/** Reenvuelve la DEK existente con un PIN nuevo (no re-cifra los archivos). */
+export async function rewrapPinConfig(newPin, dek) {
+  const salt = randomSaltB64();
+  const kek = await deriveKEK(newPin, salt);
+  const wrappedDEK = await wrapDEK(dek, kek);
+  return { v: PIN_CONFIG_VERSION, salt, wrappedDEK, createdAt: Date.now() };
+}
+
+/** ¿La configuración usa el esquema nuevo (con DEK)? */
+export function isEncryptedPinConfig(config) {
+  return !!(config && config.wrappedDEK);
 }

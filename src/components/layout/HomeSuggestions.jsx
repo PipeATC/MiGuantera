@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Fingerprint, BellRing, DatabaseBackup, X, Sparkles, Check } from 'lucide-react';
 import { useApp } from '../../context/AppContext.jsx';
 import { isDeviceAuthSupported } from '../../utils/deviceAuth.js';
@@ -7,7 +8,6 @@ import {
   notificationPermission,
   requestNotificationPermission,
 } from '../../utils/reminders.js';
-import { exportBackup } from '../../utils/backup.js';
 
 /**
  * Nota de sugerencias en la Home: activar biometría, notificaciones y respaldo.
@@ -15,6 +15,7 @@ import { exportBackup } from '../../utils/backup.js';
  */
 export default function HomeSuggestions() {
   const { securityLock, enableSecurityLock, dismissedTips, dismissTip } = useApp();
+  const navigate = useNavigate();
   const [bioSupported, setBioSupported] = useState(false);
   const [notifPerm, setNotifPerm] = useState(notificationPermission());
   const [busy, setBusy] = useState('');
@@ -49,17 +50,7 @@ export default function HomeSuggestions() {
     setBusy('');
   };
 
-  const handleBackup = async () => {
-    setBusy('backup');
-    try {
-      await exportBackup();
-      flash('Respaldo generado.');
-    } catch {
-      flash('No se pudo generar el respaldo.');
-    } finally {
-      setBusy('');
-    }
-  };
+  const handleBackup = () => navigate('/ajustes');
 
   const tips = [
     {
@@ -84,9 +75,9 @@ export default function HomeSuggestions() {
       key: 'backup',
       show: true,
       icon: DatabaseBackup,
-      title: 'Haz un respaldo',
-      desc: 'Exporta tus documentos para no perderlos.',
-      cta: 'Exportar',
+      title: 'Haz un respaldo cifrado',
+      desc: 'Protege tus documentos con una copia cifrada.',
+      cta: 'Respaldar',
       onClick: handleBackup,
     },
   ].filter((t) => t.show && !dismissedTips[t.key]);

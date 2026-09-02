@@ -11,7 +11,7 @@ import {
   Info,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext.jsx';
-import { exportBackup, importBackup, readBackupFile } from '../utils/backup.js';
+import Modal from '../components/ui/Modal.jsx';
 import { getStorageEstimate, clearAllData } from '../db/database.js';
 import { formatBytes } from '../utils/fileUtils.js';
 import { isDeviceAuthSupported } from '../utils/deviceAuth.js';
@@ -47,6 +47,8 @@ export default function SettingsPage() {
     enableSecurityLock,
     disableSecurityLock,
     changePin,
+    exportBackup,
+    importBackup,
   } = useApp();
 
   const [storage, setStorage] = useState({ usage: 0, quota: 0 });
@@ -57,6 +59,11 @@ export default function SettingsPage() {
   const [pinEditing, setPinEditing] = useState(false);
   const [pinBusy, setPinBusy] = useState(false);
   const [pinForm, setPinForm] = useState({ current: '', next: '', confirm: '' });
+  const [exportModal, setExportModal] = useState(false);
+  const [exportForm, setExportForm] = useState({ pass: '', confirm: '' });
+  const [importFile, setImportFile] = useState(null);
+  const [importForm, setImportForm] = useState({ pass: '', replace: false });
+  const [backupBusy, setBackupBusy] = useState(false);
   const importRef = useRef(null);
 
   useEffect(() => {
@@ -72,32 +79,45 @@ export default function SettingsPage() {
   };
 
   const handleExport = async () => {
+    const { pass, confirm } = exportForm;
+    if (pass.length < 6) return flash('La frase debe tener al menos 6 caracteres.');
+    if (pass !== confirm) return flash('Las frases no coinciden.');
+    setBackupBusy(true);
     try {
-      const res = await exportBackup();
+      const res = await exportBackup(pass);
       flash(
-        `Respaldo generado: ${res.vehicles} vehículos, ${res.drivers} conductores, ${res.documents} documentos.`
+        `Respaldo cifrado: ${res.vehicles} vehículos, ${res.drivers} conductores, ${res.documents} documentos.`
       );
+      setExportModal(false);
+      setExportForm({ pass: '', confirm: '' });
     } catch {
       flash('No se pudo generar el respaldo.');
+    } finally {
+      setBackupBusy(false);
     }
   };
 
-  const handleImportFile = async (e) => {
+  const handlePickImport = (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
+    setImportFile(file);
+    setImportForm({ pass: '', replace: false });
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return;
+    setBackupBusy(true);
     try {
-      const data = await readBackupFile(file);
-      const replace = confirm(
-        'Importar respaldo:\n\n"Aceptar" = REEMPLAZAR todos los datos actuales.\n"Cancelar" = COMBINAR con los datos existentes.'
-      );
-      const res = await importBackup(data, { replace });
-      await refresh();
+      const res = await importBackup(importFile, importForm.pass, { replace: importForm.replace });
       flash(
         `Importados ${res.vehicles} vehículos, ${res.drivers} conductores y ${res.documents} documentos.`
       );
+      setImportFile(null);
     } catch (err) {
       flash(err.message || 'Error al importar el respaldo.');
+    } finally {
+      setBackupBusy(false);
     }
   };
 
@@ -310,13 +330,14 @@ export default function SettingsPage() {
       </Section>
 
       {/* Respaldo */}
-      <Section icon={Database} title="Respaldo (Exportar / Importar)">
+      <Section icon={Database} title="Respaldo cifrado (Exportar / Importar)">
         <p className="mb-3 text-sm text-primary-500">
-          Genera un archivo JSON con todos tus documentos codificados en Base64. Guárdalo en un
-          lugar seguro para restaurarlo en otro dispositivo.
+          Genera un archivo <strong className="font-semibold text-primary-700">cifrado</strong> con
+          todos tus documentos e imágenes, protegido por una frase de acceso que tú eliges.
+          Guárdalo en un lugar seguro para restaurarlo en otro dispositivo.
         </p>
         <div className="grid grid-cols-2 gap-2">
-          <button onClick={handleExport} className="btn-secondary">
+          <button onClick={() => setExportModal(true)} className="btn-secondary">
             <Download className="h-5 w-5" /> Exportar
           </button>
           <button onClick={() => importRef.current?.click()} className="btn-secondary">
@@ -328,7 +349,7 @@ export default function SettingsPage() {
           type="file"
           accept="application/json,.json"
           className="hidden"
-          onChange={handleImportFile}
+          onChange={handlePickImport}
         />
       </Section>
 
@@ -362,6 +383,86 @@ export default function SettingsPage() {
       <div className="flex items-center justify-center gap-2 pt-2 text-xs text-primary-400">
         <Info className="h-4 w-4" /> MiGuantera · PWA offline-first · v1.1
       </div>
+
+      {/* Modal: exportar respaldo cifrado */}
+      <Modal
+        open={exportModal}
+        onClose={() => setExportModal(false)}
+        subtitle="Respaldo cifrado"
+        title="Exportar respaldo"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-primary-500">
+            Elige una frase de acceso (mínimo 6 caracteres). La necesitarás para restaurar el
+            respaldo; guárdala bien, no se puede recuperar.
+          </p>
+          <div>
+            <label className="label-field" htmlFor="exp-pass">Frase de acceso</label>
+            <input
+              id="exp-pass"
+              type="password"
+              autoComplete="new-password"
+              value={exportForm.pass}
+              onChange={(e) => setExportForm((f) => ({ ...f, pass: e.target.value }))}
+              className="input-well"
+            />
+          </div>
+          <div>
+            <label className="label-field" htmlFor="exp-confirm">Confirmar frase</label>
+            <input
+              id="exp-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={exportForm.confirm}
+              onChange={(e) => setExportForm((f) => ({ ...f, confirm: e.target.value }))}
+              className="input-well"
+            />
+          </div>
+          <button onClick={handleExport} disabled={backupBusy} className="btn-primary disabled:opacity-60">
+            <Download className="h-5 w-5" /> {backupBusy ? 'Generando…' : 'Exportar cifrado'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Modal: importar respaldo */}
+      <Modal
+        open={!!importFile}
+        onClose={() => setImportFile(null)}
+        subtitle="Restaurar respaldo"
+        title="Importar respaldo"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-primary-500">
+            Ingresa la frase de acceso del respaldo para descifrarlo.
+          </p>
+          <div>
+            <label className="label-field" htmlFor="imp-pass">Frase de acceso</label>
+            <input
+              id="imp-pass"
+              type="password"
+              autoComplete="off"
+              value={importForm.pass}
+              onChange={(e) => setImportForm((f) => ({ ...f, pass: e.target.value }))}
+              className="input-well"
+            />
+          </div>
+          <label className="flex items-start gap-2.5 rounded-lg bg-primary-50 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={importForm.replace}
+              onChange={(e) => setImportForm((f) => ({ ...f, replace: e.target.checked }))}
+              className="mt-0.5 h-4 w-4"
+            />
+            <span className="text-sm text-primary-700">
+              <span className="font-semibold">Reemplazar todos los datos actuales.</span>{' '}
+              Si lo dejas sin marcar, el respaldo se combinará con lo existente.
+            </span>
+          </label>
+          <button onClick={handleImport} disabled={backupBusy} className="btn-primary disabled:opacity-60">
+            <Upload className="h-5 w-5" /> {backupBusy ? 'Importando…' : 'Importar'}
+          </button>
+        </div>
+      </Modal>
 
       {/* Toast */}
       {toast && (
