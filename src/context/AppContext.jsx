@@ -26,14 +26,28 @@ import {
   computePendingReminders,
   fireReminderNotifications,
 } from '../utils/reminders.js';
-import { registerDeviceCredential, verifyDeviceCredential } from '../utils/deviceAuth.js';
+import {
+  registerDeviceCredential,
+  verifyDeviceCredential,
+  getPrfSecret,
+} from '../utils/deviceAuth.js';
 import {
   createPinConfig,
   unlockWithPin,
   rewrapPinConfig,
   isEncryptedPinConfig,
 } from '../utils/pinAuth.js';
-import { encryptBlob, decryptToBlob, generateDEK, sha256Hex } from '../utils/crypto.js';
+import {
+  encryptBlob,
+  decryptToBlob,
+  generateDEK,
+  sha256Hex,
+  wrapDEK,
+  unwrapDEK,
+  deriveAesKeyFromSecret,
+  bufToB64,
+  b64ToBuf,
+} from '../utils/crypto.js';
 import {
   serializeBackup,
   encryptBackup,
@@ -299,13 +313,32 @@ export function AppProvider({ children }) {
   }, []);
 
   /**
-   * Desbloqueo por biometría. Solo puede revelar los datos si la clave de
-   * cifrado sigue en memoria (caso minimizar/volver). En un arranque en frío la
-   * clave no está y hay que usar el PIN.
+   * Desbloqueo por biometría.
+   * - Con PRF (bioWrappedDEK): la biometría deriva la clave y desbloquea incluso
+   *   en un arranque en frío. Es el método principal.
+   * - Sin PRF: solo re-desbloquea dentro de la sesión (clave aún en memoria);
+   *   en un arranque en frío devuelve 'needpin' para caer al PIN.
    * @returns 'ok' | 'needpin' | 'fail'
    */
   const unlockBiometric = useCallback(async () => {
     pauseAutoLock(); // el prompt biométrico manda la app a segundo plano
+    // Camino PRF: obtiene el secreto del sensor y desenvuelve la DEK.
+    if (securityLock?.prf && securityLock?.bioWrappedDEK && securityLock?.bioSalt) {
+      try {
+        const secret = await getPrfSecret(securityLock.credentialId, b64ToBuf(securityLock.bioSalt));
+        if (!secret) return 'fail';
+        const bioKey = await deriveAesKeyFromSecret(secret);
+        const dek = await unwrapDEK(securityLock.bioWrappedDEK, bioKey);
+        dekRef.current = dek;
+        setHasKey(true);
+        setAuthed(true);
+        await refresh();
+        return 'ok';
+      } catch {
+        return 'fail';
+      }
+    }
+    // Sin PRF: solo confirma identidad; requiere la clave ya en memoria.
     let verified = false;
     try {
       verified = await verifyDeviceCredential(securityLock?.credentialId);
@@ -313,10 +346,10 @@ export function AppProvider({ children }) {
       verified = false;
     }
     if (!verified) return 'fail';
-    if (!dekRef.current) return 'needpin'; // biometría OK, pero falta la clave (arranque en frío)
+    if (!dekRef.current) return 'needpin';
     setAuthed(true);
     return 'ok';
-  }, [securityLock, pauseAutoLock]);
+  }, [securityLock, pauseAutoLock, refresh]);
 
   // Verificación biométrica ligera (para confirmar acciones; no toca la sesión).
   const confirmBiometric = useCallback(async () => {
@@ -331,10 +364,42 @@ export function AppProvider({ children }) {
   // --- Biometría opcional (WebAuthn) ---
   const enableSecurityLock = useCallback(async () => {
     pauseAutoLock(); // el registro biométrico manda la app a segundo plano
-    const { credentialId } = await registerDeviceCredential({
+    const prfSaltBytes = crypto.getRandomValues(new Uint8Array(32));
+    const reg = await registerDeviceCredential({
       userName: driverName || 'MiGuantera',
+      prfSalt: prfSaltBytes,
     });
-    const value = { enabled: true, credentialId, method: 'webauthn', createdAt: Date.now() };
+
+    // Si el dispositivo soporta PRF, envolvemos la clave de cifrado con el
+    // secreto biométrico para poder desbloquear al iniciar la app en frío.
+    let secret = reg.prfSecret;
+    if (!secret && reg.prfEnabled) {
+      try {
+        secret = await getPrfSecret(reg.credentialId, prfSaltBytes);
+      } catch {
+        secret = null;
+      }
+    }
+
+    let prf = false;
+    let bioWrappedDEK = null;
+    let bioSalt = null;
+    if (secret && dekRef.current) {
+      const bioKey = await deriveAesKeyFromSecret(secret);
+      bioWrappedDEK = await wrapDEK(dekRef.current, bioKey);
+      bioSalt = bufToB64(prfSaltBytes);
+      prf = true;
+    }
+
+    const value = {
+      enabled: true,
+      credentialId: reg.credentialId,
+      method: 'webauthn',
+      createdAt: Date.now(),
+      prf,
+      bioSalt,
+      bioWrappedDEK,
+    };
     await setSetting('securityLock', value);
     setSecurityLockState(value);
     return value;

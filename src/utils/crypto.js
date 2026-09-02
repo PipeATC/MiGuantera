@@ -66,6 +66,15 @@ export async function deriveKEK(pin, saltB64, iterations = PBKDF2_ITERATIONS) {
   );
 }
 
+/**
+ * Deriva una clave AES-GCM a partir de un secreto arbitrario (p. ej. la salida
+ * PRF de WebAuthn). Se normaliza con SHA-256 a 256 bits.
+ */
+export async function deriveAesKeyFromSecret(secretBytes) {
+  const hash = await crypto.subtle.digest('SHA-256', secretBytes);
+  return crypto.subtle.importKey('raw', hash, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
 /* --------------------------------- DEK ----------------------------------- */
 
 /** Genera una DEK AES-GCM (extraíble para poder envolverla). */
