@@ -38,6 +38,32 @@ function randomBytes(len = 32) {
   return arr;
 }
 
+/* ------------------------------ Diagnóstico ------------------------------ */
+
+/**
+ * Traduce un error de WebAuthn a un mensaje entendible para el usuario, con
+ * pistas de la causa real. Incluye el nombre técnico del error para depurar.
+ */
+export function describeWebAuthnError(err) {
+  const name = err?.name || 'Error';
+  switch (name) {
+    case 'NotAllowedError':
+      return 'Se canceló o se agotó el tiempo. Completa la huella o el rostro cuando aparezca el aviso del sistema.';
+    case 'InvalidStateError':
+      return 'Ya hay una credencial registrada para este sitio en el dispositivo. Bórrala en los ajustes de contraseñas/passkeys del sistema y reintenta.';
+    case 'NotSupportedError':
+      return 'Este navegador no soporta el método requerido. Prueba abriendo la app en Chrome.';
+    case 'SecurityError':
+      return 'No se pudo por el origen del sitio (dominio o conexión no segura).';
+    case 'AbortError':
+      return 'La operación se interrumpió. Reintenta.';
+    case 'ConstraintError':
+      return 'El dispositivo no cumple los requisitos de verificación. Revisa que tengas huella/PIN configurado en el sistema.';
+    default:
+      return `No se pudo activar el bloqueo en este dispositivo (${name}).`;
+  }
+}
+
 /* ------------------------------ Disponibilidad --------------------------- */
 
 /**

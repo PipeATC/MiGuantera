@@ -14,7 +14,7 @@ import { useApp } from '../context/AppContext.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import { getStorageEstimate, clearAllData } from '../db/database.js';
 import { formatBytes } from '../utils/fileUtils.js';
-import { isDeviceAuthSupported } from '../utils/deviceAuth.js';
+import { isDeviceAuthSupported, describeWebAuthnError } from '../utils/deviceAuth.js';
 import {
   notificationsSupported,
   notificationPermission,
@@ -164,11 +164,7 @@ export default function SettingsPage() {
         flash('Bloqueo activado. Se pedirá tu verificación al abrir la app.');
       }
     } catch (err) {
-      flash(
-        err?.name === 'NotAllowedError'
-          ? 'Configuración cancelada.'
-          : 'No se pudo activar el bloqueo en este dispositivo.'
-      );
+      flash(describeWebAuthnError(err));
     } finally {
       setLockBusy(false);
     }
@@ -187,7 +183,7 @@ export default function SettingsPage() {
           : 'Activada, pero este dispositivo no permite biometría al iniciar (usa el PIN).'
       );
     } catch (err) {
-      flash(err?.name === 'NotAllowedError' ? 'Configuración cancelada.' : 'No se pudo actualizar.');
+      flash(describeWebAuthnError(err));
     } finally {
       setLockBusy(false);
     }
