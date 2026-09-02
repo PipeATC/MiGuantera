@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, RotateCw, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
 import { useObjectUrl } from '../../hooks/useObjectUrl.js';
 import { isImage, isPDF } from '../../utils/fileUtils.js';
+import { selection } from '../../utils/haptics.js';
 
 const MIN = 1;
 const MAX = 5;
@@ -74,7 +75,10 @@ export default function FullscreenDoc({ sides = [], title = '', onClose }) {
 
   const go = (next) => {
     const clamped = clamp(next, 0, sides.length - 1);
-    if (clamped !== index) setIndex(clamped);
+    if (clamped !== index) {
+      setIndex(clamped);
+      selection();
+    }
   };
 
   /* ------------------------------- gestos -------------------------------- */
@@ -195,6 +199,7 @@ export default function FullscreenDoc({ sides = [], title = '', onClose }) {
               src={url}
               alt={title}
               draggable={false}
+              onContextMenu={(e) => e.preventDefault()}
               className="h-full w-full object-contain"
               style={{
                 transform: `translate(${tx}px, ${ty}px) scale(${scale})`,

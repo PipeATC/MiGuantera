@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import FileViewer from './FileViewer.jsx';
+import { selection } from '../../utils/haptics.js';
 
 /**
  * Visor con navegación por deslizamiento (swipe) entre las caras de un
@@ -36,6 +37,7 @@ export default function SwipeViewer({
     if (clamped !== index) {
       setIndex(clamped);
       onIndexChange?.(clamped);
+      selection();
     }
   };
 

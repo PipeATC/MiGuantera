@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Delete, Fingerprint, ShieldCheck, Lock, Loader2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext.jsx';
 import { asset } from '../../utils/assets.js';
+import * as haptics from '../../utils/haptics.js';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
 
@@ -51,10 +52,14 @@ export default function LockScreen() {
     setError('');
     try {
       const res = await unlockBiometric();
-      if (res === 'ok') return; // la app se desbloquea (este componente se desmonta)
+      if (res === 'ok') {
+        haptics.success();
+        return; // la app se desbloquea (este componente se desmonta)
+      }
       if (res === 'needpin') {
         setStage('pin');
       } else {
+        haptics.error();
         setError('No se pudo verificar. Usa tu huella de nuevo o tu PIN.');
       }
     } finally {
@@ -82,7 +87,9 @@ export default function LockScreen() {
         } else if (stage === 'confirm') {
           if (pin === firstPin) {
             await createPin(pin);
+            haptics.success();
           } else {
+            haptics.error();
             setError('Los PIN no coinciden. Vuelve a intentarlo.');
             setFirstPin('');
             setEntry('');
@@ -90,7 +97,10 @@ export default function LockScreen() {
           }
         } else {
           const ok = await verifyPin(pin);
-          if (!ok) {
+          if (ok) {
+            haptics.success();
+          } else {
+            haptics.error();
             setError('PIN incorrecto.');
             setEntry('');
           }
@@ -111,8 +121,14 @@ export default function LockScreen() {
   const press = (k) => {
     if (busy) return;
     setError('');
-    if (k === 'del') return setEntry((e) => e.slice(0, -1));
-    if (/^\d$/.test(k)) setEntry((e) => (e.length < 4 ? e + k : e));
+    if (k === 'del') {
+      haptics.tapLight();
+      return setEntry((e) => e.slice(0, -1));
+    }
+    if (/^\d$/.test(k)) {
+      haptics.tapLight();
+      setEntry((e) => (e.length < 4 ? e + k : e));
+    }
   };
 
   useEffect(() => {

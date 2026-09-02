@@ -236,6 +236,10 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
             value={number}
             onChange={(e) => setNumber(e.target.value)}
             placeholder="Opcional"
+            autoCapitalize="characters"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="done"
             className="input-well"
           />
         </div>

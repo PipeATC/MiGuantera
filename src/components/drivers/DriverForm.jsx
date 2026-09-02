@@ -41,6 +41,9 @@ export default function DriverForm({ driver, onDone }) {
           value={form.name}
           onChange={set('name')}
           placeholder="Ej: Ana María Rodríguez"
+          autoCapitalize="words"
+          autoComplete="name"
+          enterKeyHint="next"
           className="input-well"
         />
       </div>
@@ -52,6 +55,11 @@ export default function DriverForm({ driver, onDone }) {
           value={form.run}
           onChange={set('run')}
           placeholder="Ej: 12.345.678-9"
+          autoCapitalize="characters"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="next"
           className="input-well tabular uppercase"
         />
       </div>
@@ -62,6 +70,8 @@ export default function DriverForm({ driver, onDone }) {
           id="d-phone"
           type="tel"
           inputMode="tel"
+          autoComplete="tel"
+          enterKeyHint="done"
           value={form.phone}
           onChange={set('phone')}
           placeholder="Opcional"
