@@ -103,6 +103,7 @@ export function AppProvider({ children }) {
 
   const dekRef = useRef(null); // clave de cifrado de datos (en memoria tras desbloquear)
   const lockPausedRef = useRef(false); // suspende el re-bloqueo (p. ej. selector de archivos)
+  const hiddenAtRef = useRef(0); // instante en que la app pasó a segundo plano
 
   // Carga de datos: vehículos/conductores siempre; documentos se descifran con la DEK.
   const refresh = useCallback(async () => {
@@ -159,10 +160,26 @@ export function AppProvider({ children }) {
     })();
   }, []);
 
-  // Re-bloquear al volver a segundo plano (salvo mientras se elige un archivo).
+  // Re-bloqueo por inactividad en segundo plano. En vez de bloquear apenas la
+  // app pasa a segundo plano (lo que rompía la carga de archivos, porque abrir
+  // el selector manda la app a segundo plano), se exige reautenticar solo si
+  // estuvo oculta más que un período de gracia. Elegir un archivo vuelve en
+  // pocos segundos, así que nunca interrumpe el guardado.
   useEffect(() => {
+    const GRACE_MS = 60000;
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden' && !lockPausedRef.current) setAuthed(false);
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now();
+        return;
+      }
+      // visible de nuevo
+      const away = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : 0;
+      hiddenAtRef.current = 0;
+      if (lockPausedRef.current) {
+        lockPausedRef.current = false; // se consumió la pausa (p. ej. selector de archivos)
+        return;
+      }
+      if (away > GRACE_MS) setAuthed(false);
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
@@ -175,16 +192,10 @@ export function AppProvider({ children }) {
     fireReminderNotifications(pending);
   }, [loading, authed, documents, vehicles, warnDays]);
 
-  // Suspende el auto-bloqueo mientras el sistema abre un diálogo (archivos/cámara).
+  // Garantiza que abrir un diálogo del sistema (selector de archivos / cámara)
+  // no dispare el re-bloqueo al volver, aunque tarde más que el período de gracia.
   const pauseAutoLock = useCallback(() => {
     lockPausedRef.current = true;
-    const resume = () => {
-      window.removeEventListener('focus', resume);
-      setTimeout(() => {
-        lockPausedRef.current = false;
-      }, 800);
-    };
-    window.addEventListener('focus', resume);
   }, []);
 
   const saveVehicle = useCallback(async (vehicle) => {
