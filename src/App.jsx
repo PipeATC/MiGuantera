@@ -9,6 +9,7 @@ import InspectionPage from './pages/InspectionPage.jsx';
 import ManagementPage from './pages/ManagementPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
 import LockScreen from './components/security/LockScreen.jsx';
+import SharedImport from './components/documents/SharedImport.jsx';
 
 function Splash() {
   return (
@@ -75,6 +76,9 @@ export default function App() {
         </div>
       </main>
       <BottomNav />
+      {/* Importador del Share Target: aparece si el usuario compartió un
+          archivo hacia la app desde otra aplicación. */}
+      <SharedImport />
     </div>
   );
 }

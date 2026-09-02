@@ -13,6 +13,12 @@ export default defineConfig(({ command }) => ({
   plugins: [
     react(),
     VitePWA({
+      // injectManifest: usamos un service worker propio (src/sw.js) para poder
+      // atender el Share Target (POST del menú "Compartir" del sistema), que el
+      // modo generateSW no permite interceptar.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'robots.txt', 'icons/*.png', 'icons/*.svg'],
@@ -78,15 +84,29 @@ export default defineConfig(({ command }) => ({
             icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }],
           },
         ],
+        // Share Target: permite "Compartir" una foto o PDF desde otra app
+        // (galería, cámara, correo) directo a MiGuantera. El SW intercepta el
+        // POST en ./compartir y la app abre el importador con el archivo.
+        share_target: {
+          action: 'compartir',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            title: 'title',
+            text: 'text',
+            files: [
+              {
+                name: 'documento',
+                accept: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+              },
+            ],
+          },
+        },
       },
-      workbox: {
+      injectManifest: {
         // Solo woff2 en el precache (soportado por todos los navegadores con
         // PWA); evita duplicar cada fuente en woff + woff2.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
-        navigateFallback: 'index.html',
       },
       devOptions: {
         enabled: false,
