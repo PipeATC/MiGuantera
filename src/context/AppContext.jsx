@@ -17,7 +17,7 @@ import {
   deleteDriver as dbDeleteDriver,
   saveDocument as dbSaveDocument,
   deleteDocument as dbDeleteDocument,
-  clearAllData,
+  clearDataStores,
   getSetting,
   setSetting,
 } from '../db/database.js';
@@ -65,14 +65,24 @@ const AppContext = createContext(null);
 
 const DRIVER_DOC_KEYS = new Set(['cedula', 'licencia']);
 
-/** Descifra un registro de documento a la forma que usa la UI (con Blobs). */
+/** Descifra un registro de documento a la forma que usa la UI (con Blobs).
+ * Si un archivo no se puede descifrar (p. ej. clave distinta a la que lo cifró),
+ * se devuelve el documento con blob null en vez de romper toda la carga. */
 async function decryptDoc(rec, dek) {
   let fileBlob = null;
   let backBlob = null;
-  if (rec.fileEnc && dek) fileBlob = await decryptToBlob(rec.fileEnc, dek, rec.fileType);
-  else if (rec.fileBlob) fileBlob = rec.fileBlob; // legado en claro
-  if (rec.backEnc && dek) backBlob = await decryptToBlob(rec.backEnc, dek, rec.backFileType);
-  else if (rec.backBlob) backBlob = rec.backBlob; // legado en claro
+  try {
+    if (rec.fileEnc && dek) fileBlob = await decryptToBlob(rec.fileEnc, dek, rec.fileType);
+    else if (rec.fileBlob) fileBlob = rec.fileBlob; // legado en claro
+  } catch {
+    fileBlob = null;
+  }
+  try {
+    if (rec.backEnc && dek) backBlob = await decryptToBlob(rec.backEnc, dek, rec.backFileType);
+    else if (rec.backBlob) backBlob = rec.backBlob; // legado en claro
+  } catch {
+    backBlob = null;
+  }
   return { ...rec, fileBlob, backBlob };
 }
 
@@ -490,7 +500,11 @@ export function AppProvider({ children }) {
       throw new Error('El archivo no es un respaldo válido de MiGuantera.');
     }
 
-    if (replace) await clearAllData();
+    // Importante: al reemplazar se borran solo los datos, NO los ajustes de
+    // seguridad (PIN/biometría). Si se borrara el PIN, al crear uno nuevo
+    // cambiaría la clave de cifrado y los documentos recién importados —cifrados
+    // con la clave actual— quedarían indescifrables.
+    if (replace) await clearDataStores();
 
     for (const vehicle of data.vehicles) await dbSaveVehicle(vehicle);
 

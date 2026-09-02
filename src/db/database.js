@@ -287,6 +287,24 @@ export async function clearAllData() {
   await tx.done;
 }
 
+/**
+ * Borra solo los datos (vehículos, conductores, documentos) SIN tocar los
+ * ajustes (PIN, biometría, preferencias). Se usa al importar un respaldo con
+ * "reemplazar": borrar el PIN/clave dejaría los documentos importados —cifrados
+ * con la clave actual— indescifrables tras crear un PIN nuevo.
+ */
+export async function clearDataStores() {
+  const db = await getDB();
+  const tx = db.transaction(
+    [STORE_VEHICLES, STORE_DRIVERS, STORE_DOCUMENTS],
+    'readwrite'
+  );
+  await tx.objectStore(STORE_VEHICLES).clear();
+  await tx.objectStore(STORE_DRIVERS).clear();
+  await tx.objectStore(STORE_DOCUMENTS).clear();
+  await tx.done;
+}
+
 /** Estimación de uso de almacenamiento (StorageManager API). */
 export async function getStorageEstimate() {
   if (navigator.storage && navigator.storage.estimate) {
