@@ -31,6 +31,7 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
     doc?.driverId || (meta.scope === 'driver' ? driverId || '' : '')
   );
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Conductor seleccionado: los datos del titular (nombre / RUN) se toman de aquí.
   const selectedDriver = drivers.find((d) => d.id === assignedDriver) || null;
@@ -52,6 +53,7 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError('');
     try {
       await saveDocument({
         id: doc?.id,
@@ -78,6 +80,8 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
         createdAt: doc?.createdAt,
       });
       onDone?.();
+    } catch (err) {
+      setSaveError(err?.message || 'No se pudo guardar el documento. Inténtalo de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -257,6 +261,11 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
 
       {/* Acciones */}
       <div className="space-y-2 pt-1">
+        {saveError && (
+          <p className="rounded-lg bg-vencido-soft px-4 py-2.5 text-sm font-medium text-vencido-dark">
+            {saveError}
+          </p>
+        )}
         <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-60">
           {doc ? (
             <>
