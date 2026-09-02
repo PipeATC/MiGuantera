@@ -58,6 +58,8 @@ import {
   base64ToBlob,
 } from '../utils/backup.js';
 import { downloadBlob } from '../utils/fileUtils.js';
+import { requestPersistentStorage } from '../utils/storage.js';
+import * as haptics from '../utils/haptics.js';
 
 const AppContext = createContext(null);
 
@@ -148,6 +150,13 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  // Solicita almacenamiento persistente para que el navegador no desaloje la
+  // base de datos local (documentos) por presión de memoria. Es determinante en
+  // una billetera offline-first.
+  useEffect(() => {
+    requestPersistentStorage();
+  }, []);
+
   // Carga inicial (sin descifrar documentos: aún no hay DEK).
   useEffect(() => {
     (async () => {
@@ -201,6 +210,7 @@ export function AppProvider({ children }) {
     const rec = await dbSaveVehicle(vehicle);
     await refresh();
     setActiveVehicleId((prev) => prev || rec.id);
+    haptics.success();
     return rec;
   }, [refresh]);
 
@@ -214,6 +224,7 @@ export function AppProvider({ children }) {
     const rec = await dbSaveDriver(driver);
     await refresh();
     setActiveDriverId((prev) => prev || rec.id);
+    haptics.success();
     return rec;
   }, [refresh]);
 
@@ -227,6 +238,7 @@ export function AppProvider({ children }) {
     if (!dekRef.current) throw new Error('La app está bloqueada.');
     const rec = await dbSaveDocument(await encryptDoc(doc, dekRef.current));
     await refresh();
+    haptics.success();
     return rec;
   }, [refresh]);
 

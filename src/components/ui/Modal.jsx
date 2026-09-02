@@ -19,6 +19,21 @@ export default function Modal({ open, onClose, title, subtitle, children }) {
     };
   }, [open, onClose]);
 
+  // Comportamiento de app: el botón "atrás" del sistema (Android / gesto)
+  // cierra la hoja en vez de abandonar la app. Se apila una entrada de historial
+  // al abrir; "atrás" dispara popstate y cierra. Al cerrar desde la UI se
+  // consume esa entrada para no dejar historial "fantasma".
+  useEffect(() => {
+    if (!open) return undefined;
+    window.history.pushState({ mgModal: true }, '');
+    const onPop = () => onClose();
+    window.addEventListener('popstate', onPop);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      if (window.history.state?.mgModal) window.history.back();
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (

@@ -34,6 +34,7 @@ export default function FileViewer({
           src={url}
           alt={fileName || 'Documento'}
           draggable={false}
+          onContextMenu={(e) => e.preventDefault()}
           className="select-none transition-transform duration-150"
           style={{
             transform: `scale(${zoom})`,

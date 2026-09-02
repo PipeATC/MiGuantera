@@ -65,6 +65,8 @@ export default function VehicleForm({ vehicle, onDone }) {
           value={form.name}
           onChange={set('name')}
           placeholder="Ej: Mazda CX-5"
+          autoCapitalize="words"
+          enterKeyHint="next"
           className="input-well"
         />
       </div>
@@ -76,6 +78,11 @@ export default function VehicleForm({ vehicle, onDone }) {
           value={form.plate}
           onChange={set('plate')}
           placeholder="Ej: JKLM-42"
+          autoCapitalize="characters"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="next"
           className="input-well tabular uppercase"
         />
       </div>
@@ -83,11 +90,11 @@ export default function VehicleForm({ vehicle, onDone }) {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label-field" htmlFor="v-brand">Marca</label>
-          <input id="v-brand" value={form.brand} onChange={set('brand')} placeholder="Mazda" className="input-well" />
+          <input id="v-brand" value={form.brand} onChange={set('brand')} placeholder="Mazda" autoCapitalize="words" enterKeyHint="next" className="input-well" />
         </div>
         <div>
           <label className="label-field" htmlFor="v-model">Modelo</label>
-          <input id="v-model" value={form.model} onChange={set('model')} placeholder="CX-5" className="input-well" />
+          <input id="v-model" value={form.model} onChange={set('model')} placeholder="CX-5" autoCapitalize="words" enterKeyHint="next" className="input-well" />
         </div>
       </div>
 
@@ -100,6 +107,7 @@ export default function VehicleForm({ vehicle, onDone }) {
           value={form.year}
           onChange={set('year')}
           placeholder="2022"
+          enterKeyHint="done"
           className="input-well tabular"
         />
       </div>

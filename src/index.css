@@ -17,6 +17,27 @@
     font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior-y: none;
+    /* Sensación de app: sin selección de texto ni menú contextual/"callout" al
+       mantener presionado. Se re-habilita la selección solo donde tiene sentido
+       (inputs, áreas de texto, contenido editable y la clase .selectable). */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  input,
+  textarea,
+  select,
+  [contenteditable='true'],
+  .selectable {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Las imágenes de documentos no deben ofrecer "Guardar imagen" al mantener
+     presionado (rompe la ilusión de app). La descarga se hace desde la UI. */
+  img {
+    -webkit-touch-callout: none;
   }
 
   /* Tabular figures for identifiers / plates / dates */
