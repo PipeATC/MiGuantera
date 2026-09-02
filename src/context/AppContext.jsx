@@ -26,7 +26,7 @@ import {
   computePendingReminders,
   fireReminderNotifications,
 } from '../utils/reminders.js';
-import { registerDeviceCredential } from '../utils/deviceAuth.js';
+import { registerDeviceCredential, verifyDeviceCredential } from '../utils/deviceAuth.js';
 import {
   createPinConfig,
   unlockWithPin,
@@ -103,8 +103,7 @@ export function AppProvider({ children }) {
   const [dismissedTips, setDismissedTips] = useState({});
 
   const dekRef = useRef(null); // clave de cifrado de datos (en memoria tras desbloquear)
-  const lockPausedRef = useRef(false); // suspende el re-bloqueo (p. ej. selector de archivos)
-  const hiddenAtRef = useRef(0); // instante en que la app pasó a segundo plano
+  const lockPausedRef = useRef(false); // suspende el re-bloqueo (diálogo del sistema en curso)
 
   // Carga de datos: vehículos/conductores siempre; documentos se descifran con la DEK.
   const refresh = useCallback(async () => {
@@ -161,26 +160,17 @@ export function AppProvider({ children }) {
     })();
   }, []);
 
-  // Re-bloqueo por inactividad en segundo plano. En vez de bloquear apenas la
-  // app pasa a segundo plano (lo que rompía la carga de archivos, porque abrir
-  // el selector manda la app a segundo plano), se exige reautenticar solo si
-  // estuvo oculta más que un período de gracia. Elegir un archivo vuelve en
-  // pocos segundos, así que nunca interrumpe el guardado.
+  // Bloqueo al minimizar / mandar a segundo plano: se exige reautenticar al
+  // volver. Se omite cuando hay un diálogo del sistema en curso (selector de
+  // archivos, cámara o la propia biometría), marcado con pauseAutoLock.
   useEffect(() => {
-    const GRACE_MS = 60000;
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
-        hiddenAtRef.current = Date.now();
+        if (!lockPausedRef.current) setAuthed(false);
         return;
       }
-      // visible de nuevo
-      const away = hiddenAtRef.current ? Date.now() - hiddenAtRef.current : 0;
-      hiddenAtRef.current = 0;
-      if (lockPausedRef.current) {
-        lockPausedRef.current = false; // se consumió la pausa (p. ej. selector de archivos)
-        return;
-      }
-      if (away > GRACE_MS) setAuthed(false);
+      // Al volver a primer plano se consume la pausa (si la hubo).
+      lockPausedRef.current = false;
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
@@ -192,12 +182,6 @@ export function AppProvider({ children }) {
     const pending = computePendingReminders(documents, vehicles, warnDays);
     fireReminderNotifications(pending);
   }, [loading, authed, documents, vehicles, warnDays]);
-
-  // Garantiza que abrir un diálogo del sistema (selector de archivos / cámara)
-  // no dispare el re-bloqueo al volver, aunque tarde más que el período de gracia.
-  const pauseAutoLock = useCallback(() => {
-    lockPausedRef.current = true;
-  }, []);
 
   const saveVehicle = useCallback(async (vehicle) => {
     const rec = await dbSaveVehicle(vehicle);
@@ -307,15 +291,46 @@ export function AppProvider({ children }) {
     return true;
   }, [pinConfig]);
 
-  // Biometría: solo re-desbloquea dentro de la sesión (cuando la clave sigue en
-  // memoria); en un arranque en frío la clave solo se obtiene con el PIN.
-  const unlock = useCallback(() => {
-    if (dekRef.current) setAuthed(true);
-  }, []);
   const lock = useCallback(() => setAuthed(false), []);
+
+  // Suspende el auto-bloqueo mientras el sistema muestra un diálogo (biometría).
+  const pauseAutoLock = useCallback(() => {
+    lockPausedRef.current = true;
+  }, []);
+
+  /**
+   * Desbloqueo por biometría. Solo puede revelar los datos si la clave de
+   * cifrado sigue en memoria (caso minimizar/volver). En un arranque en frío la
+   * clave no está y hay que usar el PIN.
+   * @returns 'ok' | 'needpin' | 'fail'
+   */
+  const unlockBiometric = useCallback(async () => {
+    pauseAutoLock(); // el prompt biométrico manda la app a segundo plano
+    let verified = false;
+    try {
+      verified = await verifyDeviceCredential(securityLock?.credentialId);
+    } catch {
+      verified = false;
+    }
+    if (!verified) return 'fail';
+    if (!dekRef.current) return 'needpin'; // biometría OK, pero falta la clave (arranque en frío)
+    setAuthed(true);
+    return 'ok';
+  }, [securityLock, pauseAutoLock]);
+
+  // Verificación biométrica ligera (para confirmar acciones; no toca la sesión).
+  const confirmBiometric = useCallback(async () => {
+    pauseAutoLock();
+    try {
+      return await verifyDeviceCredential(securityLock?.credentialId);
+    } catch {
+      return false;
+    }
+  }, [securityLock, pauseAutoLock]);
 
   // --- Biometría opcional (WebAuthn) ---
   const enableSecurityLock = useCallback(async () => {
+    pauseAutoLock(); // el registro biométrico manda la app a segundo plano
     const { credentialId } = await registerDeviceCredential({
       userName: driverName || 'MiGuantera',
     });
@@ -323,7 +338,7 @@ export function AppProvider({ children }) {
     await setSetting('securityLock', value);
     setSecurityLockState(value);
     return value;
-  }, [driverName]);
+  }, [driverName, pauseAutoLock]);
 
   const disableSecurityLock = useCallback(async () => {
     await setSetting('securityLock', null);
@@ -475,7 +490,8 @@ export function AppProvider({ children }) {
     createPin,
     verifyPin,
     changePin,
-    unlock,
+    unlockBiometric,
+    confirmBiometric,
     lock,
     pauseAutoLock,
     // Biometría opcional
