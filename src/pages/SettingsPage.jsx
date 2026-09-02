@@ -174,6 +174,25 @@ export default function SettingsPage() {
     }
   };
 
+  // Re-registra la biometría para habilitar el desbloqueo al iniciar (PRF).
+  const handleUpgradeBio = async () => {
+    if (lockBusy) return;
+    setLockBusy(true);
+    try {
+      await disableSecurityLock();
+      const value = await enableSecurityLock();
+      flash(
+        value?.prf
+          ? 'Biometría lista para desbloquear al iniciar la app.'
+          : 'Activada, pero este dispositivo no permite biometría al iniciar (usa el PIN).'
+      );
+    } catch (err) {
+      flash(err?.name === 'NotAllowedError' ? 'Configuración cancelada.' : 'No se pudo actualizar.');
+    } finally {
+      setLockBusy(false);
+    }
+  };
+
   const handleClearAll = async () => {
     if (!confirm('¿Borrar TODOS los datos locales? Esta acción no se puede deshacer.')) return;
     if (!confirm('Confirma nuevamente: se eliminarán vehículos y documentos.')) return;
@@ -303,29 +322,48 @@ export default function SettingsPage() {
             Necesitas una conexión segura (https) y biometría o PIN configurado en el sistema.
           </div>
         ) : (
-          <div className="flex items-center justify-between rounded-lg bg-primary-50 px-4 py-3">
-            <div className="text-sm">
-              <p className="font-semibold text-primary-800">
-                {securityLock?.enabled ? 'Activado' : 'Desactivado'}
-              </p>
-              <p className="text-primary-500">
-                {securityLock?.enabled
-                  ? 'Disponible como atajo en la pantalla de PIN.'
-                  : lockSupported === null
-                    ? 'Comprobando compatibilidad…'
-                    : 'Toca para activar el desbloqueo por biometría.'}
-              </p>
+          <>
+            <div className="flex items-center justify-between rounded-lg bg-primary-50 px-4 py-3">
+              <div className="text-sm">
+                <p className="font-semibold text-primary-800">
+                  {securityLock?.enabled ? 'Activado' : 'Desactivado'}
+                </p>
+                <p className="text-primary-500">
+                  {securityLock?.enabled
+                    ? securityLock?.prf
+                      ? 'Método principal para entrar; el PIN queda como respaldo.'
+                      : 'Disponible al volver de segundo plano.'
+                    : lockSupported === null
+                      ? 'Comprobando compatibilidad…'
+                      : 'Toca para activar el desbloqueo por biometría.'}
+                </p>
+              </div>
+              <button
+                onClick={handleToggleLock}
+                disabled={lockBusy || lockSupported === null}
+                className={`!w-auto px-4 disabled:opacity-50 ${
+                  securityLock?.enabled ? 'btn-secondary' : 'btn-primary'
+                }`}
+              >
+                {lockBusy ? '…' : securityLock?.enabled ? 'Desactivar' : 'Activar'}
+              </button>
             </div>
-            <button
-              onClick={handleToggleLock}
-              disabled={lockBusy || lockSupported === null}
-              className={`!w-auto px-4 disabled:opacity-50 ${
-                securityLock?.enabled ? 'btn-secondary' : 'btn-primary'
-              }`}
-            >
-              {lockBusy ? '…' : securityLock?.enabled ? 'Desactivar' : 'Activar'}
-            </button>
-          </div>
+            {securityLock?.enabled && !securityLock?.prf && (
+              <div className="mt-2 rounded-lg bg-porvencer-soft px-4 py-3 text-sm text-porvencer-dark">
+                <p className="mb-2">
+                  Para usar la biometría <strong>al iniciar la app</strong> (no solo al volver de
+                  segundo plano), vuelve a activarla.
+                </p>
+                <button
+                  onClick={handleUpgradeBio}
+                  disabled={lockBusy}
+                  className="btn-primary !w-auto px-4 disabled:opacity-50"
+                >
+                  {lockBusy ? '…' : 'Activar al iniciar'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </Section>
 

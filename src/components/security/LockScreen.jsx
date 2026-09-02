@@ -30,8 +30,10 @@ function PinDots({ length, error }) {
 export default function LockScreen() {
   const { pinSet, createPin, verifyPin, unlockBiometric, securityLock, hasKey } = useApp();
 
-  // La biometría solo desbloquea los datos si la clave sigue en memoria.
-  const bioPrimary = pinSet && !!securityLock?.enabled && hasKey;
+  // La biometría es principal si puede revelar la clave: con PRF (arranque en
+  // frío) o si la clave sigue en memoria (volver de segundo plano).
+  const bioCapable = !!securityLock?.enabled && (hasKey || !!securityLock?.prf);
+  const bioPrimary = pinSet && bioCapable;
 
   const [stage, setStage] = useState(() => {
     if (!pinSet) return 'create';
@@ -214,7 +216,7 @@ export default function LockScreen() {
             })}
           </div>
 
-          {pinSet && securityLock?.enabled && hasKey && (
+          {pinSet && bioCapable && (
             <button
               onClick={() => {
                 setError('');

@@ -63,7 +63,7 @@ export async function isDeviceAuthSupported() {
  * Registra una credencial de plataforma. Dispara el método del dispositivo
  * (biometría / PIN) para confirmar. Devuelve { credentialId } o lanza error.
  */
-export async function registerDeviceCredential({ userName = 'MiGuantera' } = {}) {
+export async function registerDeviceCredential({ userName = 'MiGuantera', prfSalt } = {}) {
   const publicKey = {
     challenge: randomBytes(32),
     rp: { name: 'MiGuantera' }, // id omitido: usa el dominio efectivo actual
@@ -84,10 +84,45 @@ export async function registerDeviceCredential({ userName = 'MiGuantera' } = {})
     timeout: 60000,
     attestation: 'none',
   };
+  // Extensión PRF: permite derivar un secreto estable del autenticador para
+  // envolver la clave de cifrado y desbloquear los datos con biometría.
+  if (prfSalt) {
+    publicKey.extensions = { prf: { eval: { first: prfSalt } } };
+  }
 
   const cred = await navigator.credentials.create({ publicKey });
   if (!cred) throw new Error('No se pudo registrar el bloqueo.');
-  return { credentialId: bufferToBase64url(cred.rawId) };
+  const ext = cred.getClientExtensionResults ? cred.getClientExtensionResults() : {};
+  const prfEnabled = !!ext?.prf?.enabled;
+  const first = ext?.prf?.results?.first;
+  return {
+    credentialId: bufferToBase64url(cred.rawId),
+    prfEnabled,
+    prfSecret: first ? new Uint8Array(first) : null,
+  };
+}
+
+/**
+ * Obtiene el secreto PRF del autenticador para la sal dada (verifica al usuario
+ * con biometría). Devuelve Uint8Array o null si el dispositivo no soporta PRF.
+ */
+export async function getPrfSecret(credentialId, prfSalt) {
+  const publicKey = {
+    challenge: randomBytes(32),
+    userVerification: 'required',
+    timeout: 60000,
+    extensions: { prf: { eval: { first: prfSalt } } },
+  };
+  if (credentialId) {
+    publicKey.allowCredentials = [
+      { type: 'public-key', id: base64urlToBuffer(credentialId), transports: ['internal'] },
+    ];
+  }
+  const assertion = await navigator.credentials.get({ publicKey });
+  if (!assertion) return null;
+  const ext = assertion.getClientExtensionResults ? assertion.getClientExtensionResults() : {};
+  const first = ext?.prf?.results?.first;
+  return first ? new Uint8Array(first) : null;
 }
 
 /* ------------------------------ Verificación ----------------------------- */
