@@ -70,30 +70,23 @@ export default defineConfig(({ command }) => ({
             url: './inspeccion',
             icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }],
           },
+          {
+            name: 'Gestión de documentos',
+            short_name: 'Gestión',
+            description: 'Agregar o administrar tus documentos',
+            url: './gestion',
+            icons: [{ src: 'icons/icon-192.png', sizes: '192x192' }],
+          },
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        // Solo woff2 en el precache (soportado por todos los navegadores con
+        // PWA); evita duplicar cada fuente en woff + woff2.
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
         navigateFallback: 'index.html',
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) =>
-              url.origin === 'https://fonts.googleapis.com' ||
-              url.origin === 'https://fonts.gstatic.com',
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts',
-              expiration: {
-                maxEntries: 20,
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
       },
       devOptions: {
         enabled: false,
