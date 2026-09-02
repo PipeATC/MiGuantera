@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 
 /**
@@ -6,10 +6,18 @@ import { X } from 'lucide-react';
  * Cierra con Escape, backdrop o botón. Bloquea el scroll de fondo.
  */
 export default function Modal({ open, onClose, title, subtitle, children }) {
+  // `onClose` suele ser una función inline que cambia de identidad en cada
+  // render del padre (p. ej. `onClose={() => setModal(null)}`). Guardarla en un
+  // ref evita que los efectos de abajo dependan de ella: así se ejecutan solo al
+  // abrir/cerrar y no en cada tecleo dentro del modal (lo que en Android hacía
+  // saltar el historial y cerrar el teclado en cada tecla).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current?.();
     };
     document.addEventListener('keydown', onKey);
     document.body.style.overflow = 'hidden';
@@ -17,22 +25,28 @@ export default function Modal({ open, onClose, title, subtitle, children }) {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
     };
-  }, [open, onClose]);
+  }, [open]);
 
   // Comportamiento de app: el botón "atrás" del sistema (Android / gesto)
   // cierra la hoja en vez de abandonar la app. Se apila una entrada de historial
   // al abrir; "atrás" dispara popstate y cierra. Al cerrar desde la UI se
-  // consume esa entrada para no dejar historial "fantasma".
+  // consume esa entrada para no dejar historial "fantasma". Depende solo de
+  // `open` para no reejecutarse en cada render (ver nota sobre onCloseRef).
   useEffect(() => {
     if (!open) return undefined;
+    let poppedByBack = false;
     window.history.pushState({ mgModal: true }, '');
-    const onPop = () => onClose();
+    const onPop = () => {
+      poppedByBack = true;
+      onCloseRef.current?.();
+    };
     window.addEventListener('popstate', onPop);
     return () => {
       window.removeEventListener('popstate', onPop);
-      if (window.history.state?.mgModal) window.history.back();
+      // Si se cerró desde la UI (no con "atrás"), consume la entrada apilada.
+      if (!poppedByBack && window.history.state?.mgModal) window.history.back();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
