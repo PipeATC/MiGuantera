@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { useApp } from './context/AppContext.jsx';
 import { asset } from './utils/assets.js';
@@ -26,6 +27,24 @@ export default function App() {
   const location = useLocation();
   const isInspection = location.pathname === '/inspeccion';
 
+  // Color de la barra de estado (theme-color) adaptado a la pantalla, como una
+  // app nativa: oscuro en bloqueo/splash, negro en inspección a pantalla
+  // completa y claro (lienzo) en la app normal.
+  useEffect(() => {
+    const color = !authed || loading
+      ? '#020617'
+      : isInspection
+        ? '#000000'
+        : '#F7F9FB';
+    let meta = document.querySelector('meta[name="theme-color"]');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', color);
+  }, [authed, loading, isInspection]);
+
   if (loading) return <Splash />;
 
   // Compuerta de acceso: PIN obligatorio (crear o ingresar) antes de la app.
@@ -44,12 +63,16 @@ export default function App() {
     <div className="min-h-screen bg-canvas">
       <TopBar />
       <main>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/gestion" element={<ManagementPage />} />
-          <Route path="/ajustes" element={<SettingsPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        {/* La `key` por ruta re-monta el contenedor para animar la entrada de
+            cada pantalla, dando una sensación de navegación de app. */}
+        <div key={location.pathname} className="page-enter">
+          <Routes location={location}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/gestion" element={<ManagementPage />} />
+            <Route path="/ajustes" element={<SettingsPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
       </main>
       <BottomNav />
     </div>

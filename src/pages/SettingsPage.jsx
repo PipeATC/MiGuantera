@@ -222,7 +222,7 @@ export default function SettingsPage() {
           className="input-well tabular w-28"
         />
         <p className="mt-2 text-sm text-primary-500">
-          Los documentos se marcarán "Por Vencer" dentro de este plazo.
+          Los documentos se marcarán &ldquo;Por Vencer&rdquo; dentro de este plazo.
         </p>
 
         {notificationsSupported() && (
