@@ -6,6 +6,7 @@ import {
   Database,
   Trash2,
   ShieldCheck,
+  ShieldAlert,
   Fingerprint,
   KeyRound,
   Info,
@@ -49,6 +50,9 @@ export default function SettingsPage() {
     changePin,
     exportBackup,
     importBackup,
+    storagePersisted,
+    storagePersistenceSupported,
+    protectStorage,
   } = useApp();
 
   const [storage, setStorage] = useState({ usage: 0, quota: 0 });
@@ -187,6 +191,15 @@ export default function SettingsPage() {
     } finally {
       setLockBusy(false);
     }
+  };
+
+  const handleProtectStorage = async () => {
+    const ok = await protectStorage();
+    flash(
+      ok
+        ? 'Datos protegidos: el navegador no los borrará automáticamente.'
+        : 'El navegador no concedió la protección. Instala la app y ábrela desde el ícono; evita el modo incógnito.'
+    );
   };
 
   const handleClearAll = async () => {
@@ -401,6 +414,52 @@ export default function SettingsPage() {
         <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-primary-100">
           <div className="h-full rounded-full bg-brand-500" style={{ width: `${usagePct}%` }} />
         </div>
+
+        {/* Estado de persistencia: si es temporal, el navegador podría borrar
+            los datos al cerrar la app. */}
+        {storagePersistenceSupported && (
+          <div
+            className={`mt-4 rounded-lg px-4 py-3 ${
+              storagePersisted ? 'bg-vigente-soft' : 'bg-porvencer-soft'
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              <span
+                className={`mt-0.5 shrink-0 ${
+                  storagePersisted ? 'text-vigente-dark' : 'text-porvencer-dark'
+                }`}
+              >
+                {storagePersisted ? (
+                  <ShieldCheck className="h-5 w-5" />
+                ) : (
+                  <ShieldAlert className="h-5 w-5" />
+                )}
+              </span>
+              <div className="min-w-0 flex-1 text-sm">
+                <p
+                  className={`font-bold ${
+                    storagePersisted ? 'text-vigente-dark' : 'text-porvencer-dark'
+                  }`}
+                >
+                  {storagePersisted ? 'Datos protegidos' : 'Almacenamiento temporal'}
+                </p>
+                <p className={storagePersisted ? 'text-vigente-dark/90' : 'text-porvencer-dark/90'}>
+                  {storagePersisted
+                    ? 'El navegador no borrará tus datos automáticamente.'
+                    : 'El navegador podría borrar tus datos al cerrar la app. Instálala desde el ícono de inicio y evita el modo incógnito.'}
+                </p>
+                {!storagePersisted && (
+                  <button
+                    onClick={handleProtectStorage}
+                    className="mt-2 rounded-lg bg-porvencer-dark px-4 py-2 text-sm font-bold text-white transition active:scale-95"
+                  >
+                    Proteger mis datos
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </Section>
 
       {/* Privacidad */}

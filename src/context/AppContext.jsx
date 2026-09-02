@@ -58,7 +58,7 @@ import {
   base64ToBlob,
 } from '../utils/backup.js';
 import { downloadBlob } from '../utils/fileUtils.js';
-import { requestPersistentStorage } from '../utils/storage.js';
+import { requestPersistentStorage, isStoragePersisted, storagePersistenceSupported } from '../utils/storage.js';
 import * as haptics from '../utils/haptics.js';
 
 const AppContext = createContext(null);
@@ -117,6 +117,9 @@ export function AppProvider({ children }) {
   const [hasKey, setHasKey] = useState(false); // ¿la clave de cifrado (DEK) está en memoria?
   const [securityLock, setSecurityLockState] = useState(null);
   const [dismissedTips, setDismissedTips] = useState({});
+  // ¿El almacenamiento local es persistente? Optimista hasta comprobarlo, para
+  // no mostrar una alarma en falso durante el primer render.
+  const [storagePersisted, setStoragePersisted] = useState(true);
 
   const dekRef = useRef(null); // clave de cifrado de datos (en memoria tras desbloquear)
   const lockPausedRef = useRef(false); // suspende el re-bloqueo (diálogo del sistema en curso)
@@ -152,9 +155,29 @@ export function AppProvider({ children }) {
 
   // Solicita almacenamiento persistente para que el navegador no desaloje la
   // base de datos local (documentos) por presión de memoria. Es determinante en
-  // una billetera offline-first.
+  // una billetera offline-first. Se guarda el estado para poder avisar al usuario
+  // cuando el almacenamiento sigue siendo temporal (evictable).
   useEffect(() => {
-    requestPersistentStorage();
+    requestPersistentStorage().then(setStoragePersisted);
+  }, []);
+
+  // Reintenta pedir persistencia desde un gesto del usuario (mayor probabilidad
+  // de que el navegador la conceda). Devuelve el estado resultante.
+  const protectStorage = useCallback(async () => {
+    const ok = await requestPersistentStorage();
+    setStoragePersisted(ok);
+    return ok;
+  }, []);
+
+  // Re-comprueba el estado al volver a primer plano (por si cambió).
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        isStoragePersisted().then(setStoragePersisted);
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
   // Carga inicial (sin descifrar documentos: aún no hay DEK).
@@ -585,6 +608,10 @@ export function AppProvider({ children }) {
     // Sugerencias
     dismissedTips,
     dismissTip,
+    // Persistencia del almacenamiento
+    storagePersisted,
+    storagePersistenceSupported,
+    protectStorage,
     // Respaldo
     exportBackup,
     importBackup,
