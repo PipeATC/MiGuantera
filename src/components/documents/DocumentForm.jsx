@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Cloud, RefreshCw, Download, Trash2, Save, Layers, User, Lock, Delete } from 'lucide-react';
+import { useState } from 'react';
+import { Cloud, RefreshCw, Download, Trash2, Save, Layers, User } from 'lucide-react';
 import DocumentSideField from './DocumentSideField.jsx';
+import ConfirmGate from '../security/ConfirmGate.jsx';
 import { useApp } from '../../context/AppContext.jsx';
 import { getDocType } from '../../utils/docTypes.js';
 import { formatBytes, downloadBlob } from '../../utils/fileUtils.js';
@@ -12,7 +13,7 @@ import { formatBytes, downloadBlob } from '../../utils/fileUtils.js';
  * vehicleId: vehículo asociado por defecto.
  */
 export default function DocumentForm({ type, doc, vehicleId, driverId, onDone }) {
-  const { vehicles, drivers, saveDocument, removeDocument, verifyPin } = useApp();
+  const { vehicles, drivers, saveDocument, removeDocument } = useApp();
   const meta = getDocType(type);
 
   // Estado por cara: pending = nuevo archivo elegido; removed = quitar el existente.
@@ -31,8 +32,7 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [confirming, setConfirming] = useState(false); // pidiendo el PIN para guardar
-  const [pin, setPin] = useState('');
+  const [confirming, setConfirming] = useState(false); // compuerta de confirmación (biometría/PIN)
 
   // Conductor seleccionado: los datos del titular (nombre / RUN) se toman de aquí.
   const selectedDriver = drivers.find((d) => d.id === assignedDriver) || null;
@@ -77,38 +77,27 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
     createdAt: doc?.createdAt,
   });
 
-  // Paso 1: al presionar Guardar se pide el PIN para confirmar.
+  // Paso 1: al presionar Guardar se pide confirmación (biometría o PIN).
   const handleSave = () => {
     setSaveError('');
-    setPin('');
     setConfirming(true);
   };
 
-  // Paso 2: verifica el PIN (obtiene la clave de cifrado) y guarda.
-  const confirmSave = async (enteredPin) => {
+  // Paso 2: tras confirmar la identidad, cifra y guarda.
+  const doSave = async () => {
     setSaving(true);
     setSaveError('');
     try {
-      const ok = await verifyPin(enteredPin);
-      if (!ok) {
-        setSaveError('PIN incorrecto.');
-        setPin('');
-        return;
-      }
       await saveDocument(buildPayload());
+      setConfirming(false);
       onDone?.();
     } catch (err) {
+      setConfirming(false);
       setSaveError(err?.message || 'No se pudo guardar el documento. Inténtalo de nuevo.');
     } finally {
       setSaving(false);
     }
   };
-
-  // Autoconfirma al completar 4 dígitos.
-  useEffect(() => {
-    if (confirming && pin.length === 4 && !saving) confirmSave(pin);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pin, confirming]);
 
   const handleDelete = async () => {
     if (!doc) return;
@@ -276,94 +265,41 @@ export default function DocumentForm({ type, doc, vehicleId, driverId, onDone })
           </p>
         )}
 
-        {confirming ? (
-          <div className="space-y-3 rounded-xl bg-primary-50 p-4">
-            <div className="flex items-center gap-2 text-primary-800">
-              <Lock className="h-5 w-5 text-primary-600" />
-              <p className="font-bold">Confirma con tu PIN para guardar</p>
-            </div>
-            <div className="flex items-center justify-center gap-3">
-              {[0, 1, 2, 3].map((i) => (
-                <span
-                  key={i}
-                  className={`h-4 w-4 rounded-full ${i < pin.length ? 'bg-primary-900' : 'bg-primary-200'}`}
-                />
-              ))}
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((k, i) => {
-                if (k === '') return <span key={`s-${i}`} />;
-                if (k === 'del') {
-                  return (
-                    <button
-                      key="del"
-                      type="button"
-                      onClick={() => setPin((p) => p.slice(0, -1))}
-                      disabled={saving}
-                      aria-label="Borrar"
-                      className="flex h-12 items-center justify-center rounded-lg bg-white text-primary-700 shadow-card active:scale-95 disabled:opacity-50"
-                    >
-                      <Delete className="h-5 w-5" />
-                    </button>
-                  );
-                }
-                return (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setPin((p) => (p.length < 4 ? p + k : p))}
-                    disabled={saving}
-                    className="tabular flex h-12 items-center justify-center rounded-lg bg-white text-xl font-bold text-primary-900 shadow-card active:scale-95 disabled:opacity-50"
-                  >
-                    {k}
-                  </button>
-                );
-              })}
-            </div>
+        <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-60">
+          {doc ? (
+            <>
+              <RefreshCw className="h-5 w-5" /> Guardar cambios
+            </>
+          ) : (
+            <>
+              <Save className="h-5 w-5" /> Guardar documento
+            </>
+          )}
+        </button>
+
+        {doc && (
+          <div className="grid grid-cols-2 gap-2">
             <button
-              type="button"
-              onClick={() => {
-                setConfirming(false);
-                setPin('');
-                setSaveError('');
-              }}
-              disabled={saving}
-              className="w-full text-sm font-semibold text-primary-500"
+              onClick={handleDownload}
+              disabled={sidesCount === 0}
+              className="btn-secondary disabled:opacity-50"
             >
-              Cancelar
+              <Download className="h-5 w-5" /> Descargar
+            </button>
+            <button onClick={handleDelete} className="btn-danger">
+              <Trash2 className="h-5 w-5" /> Eliminar
             </button>
           </div>
-        ) : (
-          <>
-            <button onClick={handleSave} disabled={saving} className="btn-primary disabled:opacity-60">
-              {doc ? (
-                <>
-                  <RefreshCw className="h-5 w-5" /> Guardar cambios
-                </>
-              ) : (
-                <>
-                  <Save className="h-5 w-5" /> Guardar documento
-                </>
-              )}
-            </button>
-
-            {doc && (
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={handleDownload}
-                  disabled={sidesCount === 0}
-                  className="btn-secondary disabled:opacity-50"
-                >
-                  <Download className="h-5 w-5" /> Descargar
-                </button>
-                <button onClick={handleDelete} className="btn-danger">
-                  <Trash2 className="h-5 w-5" /> Eliminar
-                </button>
-              </div>
-            )}
-          </>
         )}
       </div>
+
+      {confirming && (
+        <ConfirmGate
+          title="Confirma para guardar"
+          onConfirm={doSave}
+          onCancel={() => setConfirming(false)}
+        />
+      )}
     </div>
   );
 }
