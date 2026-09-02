@@ -213,6 +213,12 @@ export async function getDocument(id) {
   return db.get(STORE_DOCUMENTS, id);
 }
 
+/**
+ * Guarda el registro de un documento. Los archivos (anverso/reverso) se
+ * almacenan CIFRADOS: el contexto entrega `fileEnc` / `backEnc` = { iv, data }
+ * (AES-GCM) en vez de Blobs en claro. Los metadatos (tipo, nombre, tamaño,
+ * fechas) se guardan sin cifrar para poder listar y ordenar sin la clave.
+ */
 export async function saveDocument(doc) {
   const db = await getDB();
   const now = Date.now();
@@ -221,17 +227,17 @@ export async function saveDocument(doc) {
     vehicleId: doc.vehicleId || null,
     driverId: doc.driverId || null, // documentos personales del conductor
     type: doc.type, // 'cedula' | 'licencia' | 'padron' | 'permiso' | 'revision' | 'soap'
-    // Anverso (cara frontal). Se mantienen los nombres históricos file* por
-    // compatibilidad con respaldos y registros existentes.
+    enc: true, // archivos cifrados en reposo
+    // Anverso (cara frontal): { iv, data } cifrado, o null.
+    fileEnc: doc.fileEnc || null,
     fileName: doc.fileName || '',
-    fileBlob: doc.fileBlob || null, // Blob
-    fileType: doc.fileType || '', // MIME
-    fileSize: doc.fileSize || (doc.fileBlob ? doc.fileBlob.size : 0),
-    // Reverso (cara posterior). Opcional.
+    fileType: doc.fileType || '',
+    fileSize: doc.fileSize || 0,
+    // Reverso (cara posterior): opcional.
+    backEnc: doc.backEnc || null,
     backFileName: doc.backFileName || '',
-    backBlob: doc.backBlob || null, // Blob
-    backFileType: doc.backFileType || '', // MIME
-    backFileSize: doc.backFileSize || (doc.backBlob ? doc.backBlob.size : 0),
+    backFileType: doc.backFileType || '',
+    backFileSize: doc.backFileSize || 0,
     issueDate: doc.issueDate || null, // ISO yyyy-mm-dd
     expiryDate: doc.expiryDate || null, // ISO yyyy-mm-dd
     number: doc.number || '', // nº de documento / patente asociada
