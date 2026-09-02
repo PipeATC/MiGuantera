@@ -89,18 +89,14 @@ export default function DocumentCard({ type, doc, warnDays, onClick }) {
         </p>
         <div className="mt-1">
           <p className="text-[11px] font-semibold uppercase text-primary-400">
-            {type.hasExpiry ? 'Vence' : 'Emitido'}
+            {type.hasExpiry ? 'Vence' : 'Documento'}
           </p>
           <p
             className={`tabular text-sm font-bold ${
               isVencido ? 'text-vencido' : 'text-primary-700'
             }`}
           >
-            {type.hasExpiry
-              ? formatDate(doc.expiryDate)
-              : doc.issueDate
-                ? formatDate(doc.issueDate)
-                : 'N/A'}
+            {type.hasExpiry ? formatDate(doc.expiryDate) : 'Guardado'}
           </p>
         </div>
       </div>
