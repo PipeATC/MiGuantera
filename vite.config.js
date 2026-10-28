@@ -7,9 +7,16 @@ import { VitePWA } from 'vite-plugin-pwa';
 // `base` debe coincidir con la ruta donde se sirve la app.
 // En GitHub Pages de un repo, la URL es https://<user>.github.io/<repo>/,
 // por lo que se usa '/MiGuantera/' en el build. En desarrollo se usa '/'.
-// Puedes sobreescribirlo con la variable de entorno VITE_BASE.
+// En Vercel (que define VERCEL=1 al compilar) la app se sirve en la raíz,
+// así que se usa '/'. Puedes sobreescribirlo con la variable VITE_BASE.
+function resolveBase(command) {
+  if (process.env.VITE_BASE) return process.env.VITE_BASE;
+  if (process.env.VERCEL) return '/';
+  return command === 'build' ? '/MiGuantera/' : '/';
+}
+
 export default defineConfig(({ command }) => ({
-  base: process.env.VITE_BASE || (command === 'build' ? '/MiGuantera/' : '/'),
+  base: resolveBase(command),
   plugins: [
     react(),
     VitePWA({
